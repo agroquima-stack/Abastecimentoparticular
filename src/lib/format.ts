@@ -19,3 +19,18 @@ export function dataBRparaISO(dataBR: string): string {
   const [dia, mes, ano] = dataBR.trim().split('/')
   return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`
 }
+
+/** 117 -> "1h57", 12 -> "12min", 0 -> "0min" */
+export function formatMinutos(min: number): string {
+  if (min < 60) return `${min}min`
+  const h = Math.floor(min / 60)
+  const resto = min % 60
+  return resto === 0 ? `${h}h` : `${h}h${String(resto).padStart(2, '0')}`
+}
+
+/** Nome do dia da semana curto a partir de uma data ISO, ex.: "Sáb" / "Dom". */
+export function diaSemanaCurto(iso: string): string {
+  const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+  const [ano, mes, dia] = iso.split('-').map(Number)
+  return dias[new Date(ano, mes - 1, dia).getDay()]
+}

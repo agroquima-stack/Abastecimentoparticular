@@ -9,23 +9,27 @@ export function ContaCorrente() {
   const { semanas } = useSemanas()
   const semanaIds = useMemo(() => semanas.map((s) => s.id), [semanas])
   const porSemana = useTodosLancamentos(semanaIds)
-  const contaCorrente = useMemo(() => agregarPorGerente(porSemana), [porSemana])
+  const contaCorrente = useMemo(() => agregarPorGerente(semanas, porSemana), [semanas, porSemana])
 
-  const [placaSelecionada, setPlacaSelecionada] = useState<string | null>(null)
-  const linha = contaCorrente.find((l) => l.placa === placaSelecionada) ?? contaCorrente[0]
+  const [gerenteSelecionado, setGerenteSelecionado] = useState<string | null>(null)
+  const linha = contaCorrente.find((l) => l.gerente === gerenteSelecionado) ?? contaCorrente[0]
 
   const semanasOrdenadas = semanas.slice().sort((a, b) => a.id.localeCompare(b.id))
   const historicoDoGerente = linha
     ? semanasOrdenadas.map((s) => {
-        const l = (porSemana[s.id] ?? []).find((x) => x.placa === linha.placa)
+        // Busca por gerente (não por placa) — se ele trocou de camionete numa semana, o
+        // lançamento daquela semana ainda aparece aqui, só que com outra placa. Soma tudo caso
+        // existam dois lançamentos do mesmo gerente na mesma semana (cadastro com duas
+        // camionetes ativas pra ele, por exemplo).
+        const ls = (porSemana[s.id] ?? []).filter((x) => x.gerente === linha.gerente)
         return {
           semanaId: s.id,
           label: formatDataBR(s.dataInicio),
-          km: l?.kmRodado ?? 0,
-          usoEmpresa: l?.usoEmpresa ?? false,
-          devido: l?.valorDevidoCalc ?? 0,
-          comprovante: l?.valorComprovante ?? null,
-          pago: l?.valorPago ?? null,
+          placas: ls.map((l) => l.placa).join(', ') || null,
+          km: ls.reduce((acc, l) => acc + (l.kmRodado || 0), 0),
+          usoEmpresa: ls.length > 0 && ls.every((l) => l.usoEmpresa),
+          devido: ls.reduce((acc, l) => acc + (l.valorDevidoCalc || 0), 0),
+          pago: ls.some((l) => l.valorPago != null) ? ls.reduce((acc, l) => acc + (l.valorPago || 0), 0) : null,
         }
       })
     : []
@@ -47,10 +51,10 @@ export function ContaCorrente() {
           <div className="max-h-[70vh] overflow-y-auto rounded-xl border border-base-800/60 bg-base-900/60">
             {contaCorrente.map((l) => (
               <button
-                key={l.placa}
-                onClick={() => setPlacaSelecionada(l.placa)}
+                key={l.gerente}
+                onClick={() => setGerenteSelecionado(l.gerente)}
                 className={`flex w-full flex-col gap-0.5 border-b border-base-800/60 px-3 py-2 text-left text-sm last:border-0 hover:bg-base-800/40 ${
-                  linha?.placa === l.placa ? 'bg-brand-700/20' : ''
+                  linha?.gerente === l.gerente ? 'bg-brand-700/20' : ''
                 }`}
               >
                 <span className="text-base-100">{l.gerente}</span>
@@ -71,6 +75,13 @@ export function ContaCorrente() {
                 <Resumo label="Saldo" valor={formatMoeda(linha.saldo)} destaque={linha.saldo > 0 ? 'atencao' : 'bom'} />
               </div>
 
+              {linha.placas.length > 1 && (
+                <p className="text-xs text-base-500">
+                  Já usou mais de uma camionete: <span className="font-mono">{linha.placas.join(', ')}</span> — o saldo acima soma
+                  todas.
+                </p>
+              )}
+
               <div className="rounded-xl border border-base-800/60 bg-base-900/60 p-4">
                 <h2 className="mb-3 text-sm font-semibold text-base-200">Saldo acumulado ao longo do tempo</h2>
                 <ResponsiveContainer width="100%" height={200}>
@@ -89,10 +100,10 @@ export function ContaCorrente() {
                   <thead>
                     <tr className="border-b border-base-800 text-left text-xs uppercase tracking-wide text-base-500">
                       <th className="px-3 py-2">Semana</th>
+                      <th className="px-3 py-2">Placa</th>
                       <th className="px-3 py-2 text-right">Km</th>
                       <th className="px-3 py-2 text-center">Uso empresa</th>
                       <th className="px-3 py-2 text-right">Devido</th>
-                      <th className="px-3 py-2 text-right">Comprovante</th>
                       <th className="px-3 py-2 text-right">Pago</th>
                     </tr>
                   </thead>
@@ -103,10 +114,10 @@ export function ContaCorrente() {
                       .map((h) => (
                         <tr key={h.semanaId} className="border-b border-base-800/60 last:border-0">
                           <td className="px-3 py-1.5">{h.label}</td>
+                          <td className="px-3 py-1.5 font-mono text-xs">{h.placas ?? '—'}</td>
                           <td className="px-3 py-1.5 text-right">{formatKm(h.km)}</td>
                           <td className="px-3 py-1.5 text-center">{h.usoEmpresa ? '✓' : ''}</td>
                           <td className="px-3 py-1.5 text-right">{formatMoeda(h.devido)}</td>
-                          <td className="px-3 py-1.5 text-right">{formatMoeda(h.comprovante)}</td>
                           <td className="px-3 py-1.5 text-right">{formatMoeda(h.pago)}</td>
                         </tr>
                       ))}

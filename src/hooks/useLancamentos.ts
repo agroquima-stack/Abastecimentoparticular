@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { calcularValorDevido } from '../lib/calculo'
-import type { ParadasPorVeiculo } from '../lib/parseParadas'
 import { atualizarDoc, observarColecao } from '../lib/store'
 import type { ComId, Lancamento } from '../types/models'
 
@@ -30,17 +29,7 @@ export function useLancamentos(semanaId: string | null) {
     await atualizarDoc(`semanas/${semanaIdAlvo}/lancamentos`, placa, { ...patch, valorDevidoCalc })
   }
 
-  /** Mescla os locais (cidades/pontos) extraídos do relatório de Paradas nos lançamentos já
-   * existentes da semana, casando por placa — não mexe em km/valores. */
-  async function mesclarParadas(semanaIdAlvo: string, paradas: ParadasPorVeiculo, atuais: ComId<Lancamento>[]) {
-    await Promise.all(
-      atuais
-        .filter((l) => paradas.has(l.placa))
-        .map((l) => atualizarDoc(`semanas/${semanaIdAlvo}/lancamentos`, l.placa, { locaisPorDia: paradas.get(l.placa) })),
-    )
-  }
-
-  return { lancamentos: lancamentos ?? [], carregando: lancamentos === null, salvarLancamento, mesclarParadas }
+  return { lancamentos: lancamentos ?? [], carregando: lancamentos === null, salvarLancamento }
 }
 
 /** Todas as semanas x lançamentos, usado no dashboard e na conta corrente (poucas linhas, tudo em memória). */

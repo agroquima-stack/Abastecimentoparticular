@@ -3,9 +3,38 @@ import { calcularValorDevido } from '../lib/calculo'
 import type { ParadasPorVeiculo } from '../lib/parseParadas'
 import type { ResultadoParseRota } from '../lib/parseRota'
 import { atualizarDoc, gravarDoc, gravarLote, observarColecao } from '../lib/store'
-import type { ComId, Lancamento, Semana, Veiculo } from '../types/models'
+import type { ComId, DiaResumo, Lancamento, Semana, Veiculo } from '../types/models'
 
 const PATH = 'semanas'
+
+/** Junta o detalhe dia a dia do Rota (odômetro, velocidades, horários) com os locais do
+ * relatório de Paradas do mesmo veículo, casando por data. Qualquer um dos dois pode faltar. */
+function montarDias(placa: string, resultado: ResultadoParseRota, paradas?: ParadasPorVeiculo): DiaResumo[] | undefined {
+  const detalhe = resultado.detalhePorPlaca.get(placa)
+  const paradasDias = paradas?.get(placa)
+  if (!detalhe && !paradasDias) return undefined
+  const datas = new Set([...(detalhe?.map((d) => d.data) ?? []), ...(paradasDias?.map((d) => d.data) ?? [])])
+  return [...datas].sort().map((data) => {
+    const d = detalhe?.find((x) => x.data === data)
+    const p = paradasDias?.find((x) => x.data === data)
+    return {
+      data,
+      odometro: d?.odometro,
+      kmPercorrido: d?.kmPercorrido ?? 0,
+      paradas: d?.paradas,
+      velMedia: d?.velMedia,
+      velMaxima: d?.velMaxima,
+      horaSaida: d?.horaSaida,
+      horaChegada: d?.horaChegada,
+      tempoTrabalho: d?.tempoTrabalho,
+      tempoDentroCerca: d?.tempoDentroCerca,
+      tempoAcimaVel: d?.tempoAcimaVel,
+      tempoMovimento: d?.tempoMovimento,
+      tempoParado: d?.tempoParado,
+      locais: p?.locais ?? [],
+    }
+  })
+}
 
 export function useSemanas() {
   const [semanas, setSemanas] = useState<ComId<Semana>[] | null>(null)
@@ -43,12 +72,11 @@ export function useSemanas() {
         filial: v.filial,
         kmRodado,
         usoEmpresa,
-        valorComprovante: existente?.valorComprovante ?? null,
         valorPago: existente?.valorPago ?? null,
         dataPagamento: existente?.dataPagamento ?? null,
         observacao: existente?.observacao ?? '',
         valorDevidoCalc: calcularValorDevido(kmRodado, usoEmpresa, kmLExigido, precoDiesel),
-        locaisPorDia: paradas?.get(v.placa) ?? existente?.locaisPorDia,
+        dias: montarDias(v.placa, resultado, paradas) ?? existente?.dias,
       }
     }
 

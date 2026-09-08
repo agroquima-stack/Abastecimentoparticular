@@ -28,9 +28,29 @@ export interface Semana {
   origemArquivo: string
 }
 
-export interface LocaisDia {
+export interface LocalComTempo {
+  nome: string
+  minutos: number
+}
+
+/** Detalhe de um dia do fim de semana: estatísticas do relatório de Rota (por veículo) + locais
+ * visitados vindos do relatório de Paradas (ambos opcionais/parciais — nem toda semana tem os
+ * dois arquivos importados). */
+export interface DiaResumo {
   data: string // ISO
-  locais: string[]
+  odometro?: number
+  kmPercorrido: number
+  paradas?: number
+  velMedia?: string
+  velMaxima?: string
+  horaSaida?: string
+  horaChegada?: string
+  tempoTrabalho?: string
+  tempoDentroCerca?: string
+  tempoAcimaVel?: string
+  tempoMovimento?: string
+  tempoParado?: string
+  locais: LocalComTempo[]
 }
 
 export interface Lancamento {
@@ -39,12 +59,11 @@ export interface Lancamento {
   filial: string
   kmRodado: number
   usoEmpresa: boolean
-  valorComprovante: number | null
   valorPago: number | null
   dataPagamento: string | null
   observacao: string
   valorDevidoCalc: number
-  locaisPorDia?: LocaisDia[]
+  dias?: DiaResumo[]
 }
 
 export type ComId<T> = T & { id: string }

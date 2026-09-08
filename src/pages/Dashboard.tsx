@@ -11,7 +11,7 @@ export function Dashboard() {
   const semanaIds = useMemo(() => semanas.map((s) => s.id), [semanas])
   const porSemana = useTodosLancamentos(semanaIds)
 
-  const contaCorrente = useMemo(() => agregarPorGerente(porSemana), [porSemana])
+  const contaCorrente = useMemo(() => agregarPorGerente(semanas, porSemana), [semanas, porSemana])
   const serieSemanal = useMemo(() => agregarPorSemana(semanas, porSemana), [semanas, porSemana])
 
   const ultimaSemana = semanas[0]
@@ -101,9 +101,12 @@ export function Dashboard() {
             </thead>
             <tbody>
               {contaCorrente.map((l) => (
-                <tr key={l.placa} className="border-b border-base-800/60 last:border-0">
+                <tr key={l.gerente} className="border-b border-base-800/60 last:border-0">
                   <td className="py-2 pr-3">{l.gerente}</td>
-                  <td className="py-2 pr-3 font-mono text-xs">{l.placa}</td>
+                  <td className="py-2 pr-3 font-mono text-xs" title={l.placas.length > 1 ? `Já usou: ${l.placas.join(', ')}` : undefined}>
+                    {l.placa}
+                    {l.placas.length > 1 && <span className="ml-1 text-base-500">*</span>}
+                  </td>
                   <td className="py-2 pr-3">{l.filial}</td>
                   <td className="py-2 pr-3 text-right">{formatKm(l.totalKm)}</td>
                   <td className="py-2 pr-3 text-right">{formatMoeda(l.totalDevido)}</td>

@@ -1,43 +1,67 @@
-import type { ComId, Lancamento, Semana } from '../types/models'
+import type { ComId, DiaResumo, Lancamento, LocalComTempo, Semana } from '../types/models'
+
+/** Junta os locais dos dois dias do fim de semana num só ranking por tempo parado — soma o
+ * mesmo local citado nos dois dias (normalizando maiúsculas/UF pra não duplicar). */
+export function mesclarLocaisDoFimDeSemana(dias: DiaResumo[] | undefined): LocalComTempo[] {
+  const porChave = new Map<string, LocalComTempo>()
+  for (const dia of dias ?? []) {
+    for (const l of dia.locais) {
+      const chave = l.nome.toLowerCase().replace(/ - [a-zà-ú]{2}$/i, '')
+      const existente = porChave.get(chave)
+      const nome = existente && existente.nome.includes(' - ') ? existente.nome : l.nome
+      porChave.set(chave, { nome, minutos: (existente?.minutos ?? 0) + l.minutos })
+    }
+  }
+  return [...porChave.values()].sort((a, b) => b.minutos - a.minutos)
+}
 
 export interface LinhaContaCorrente {
-  placa: string
   gerente: string
+  placa: string // placa mais recente usada por ele
+  placas: string[] // todas as placas já usadas (troca de veículo não perde histórico)
   filial: string
   totalKm: number
   totalDevido: number
-  totalComprovante: number
   totalPago: number
   saldo: number // devido - pago: positivo = empresa ainda deve ao gerente
   semanasComUso: number
 }
 
-/** Agrega todos os lançamentos (de todas as semanas carregadas) por veículo/gerente — é a "conta
- * corrente": quanto já foi calculado como devido vs. quanto já foi efetivamente pago a ele. */
-export function agregarPorGerente(porSemana: Record<string, ComId<Lancamento>[]>): LinhaContaCorrente[] {
-  const mapa = new Map<string, LinhaContaCorrente>()
-  for (const lancamentos of Object.values(porSemana)) {
-    for (const l of lancamentos) {
-      const linha = mapa.get(l.placa) ?? {
-        placa: l.placa,
+/**
+ * Agrega todos os lançamentos (de todas as semanas carregadas) por GERENTE — não por placa — é a
+ * "conta corrente": quanto já foi calculado como devido vs. quanto já foi efetivamente pago a
+ * ele. Agrupar por gerente (não por placa) é o que garante que o histórico continua junto mesmo
+ * quando ele troca de camionete — percorre as semanas em ordem cronológica pra manter sempre a
+ * placa/filial mais recente na linha.
+ */
+export function agregarPorGerente(semanas: ComId<Semana>[], porSemana: Record<string, ComId<Lancamento>[]>): LinhaContaCorrente[] {
+  const semanasOrdenadas = semanas.slice().sort((a, b) => a.id.localeCompare(b.id))
+  const mapa = new Map<string, LinhaContaCorrente & { placasSet: Set<string> }>()
+  for (const s of semanasOrdenadas) {
+    for (const l of porSemana[s.id] ?? []) {
+      const linha = mapa.get(l.gerente) ?? {
         gerente: l.gerente,
+        placa: l.placa,
+        placas: [],
+        placasSet: new Set<string>(),
         filial: l.filial,
         totalKm: 0,
         totalDevido: 0,
-        totalComprovante: 0,
         totalPago: 0,
         saldo: 0,
         semanasComUso: 0,
       }
+      linha.placa = l.placa
+      linha.filial = l.filial
+      linha.placasSet.add(l.placa)
       linha.totalKm += l.kmRodado || 0
       linha.totalDevido += l.valorDevidoCalc || 0
-      linha.totalComprovante += l.valorComprovante || 0
       linha.totalPago += l.valorPago || 0
       if (!l.usoEmpresa && l.kmRodado > 0) linha.semanasComUso += 1
-      mapa.set(l.placa, linha)
+      mapa.set(l.gerente, linha)
     }
   }
-  const linhas = [...mapa.values()]
+  const linhas = [...mapa.values()].map(({ placasSet, ...l }) => ({ ...l, placas: [...placasSet].sort() }))
   for (const l of linhas) l.saldo = Math.round((l.totalDevido - l.totalPago) * 100) / 100
   return linhas.sort((a, b) => b.saldo - a.saldo)
 }
