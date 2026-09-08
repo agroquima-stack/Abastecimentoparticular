@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
 import { Logo } from './Logo'
 import { useAuth } from '../hooks/useAuth'
+import { useTema } from '../hooks/useTema'
 
 const ITENS_NAV = [
   { to: '/', label: 'Dashboard', icone: '📊' },
@@ -16,16 +17,15 @@ const ITENS_NAV = [
 
 export function Layout({ children }: { children: ReactNode }) {
   const { usuario, modoLocal, sair } = useAuth()
+  const { tema, alternarTema } = useTema()
   return (
     <div className="flex min-h-screen bg-base-950 text-base-100">
-      <aside className="flex w-60 shrink-0 flex-col gap-1 border-r border-base-800/60 bg-base-900/40 p-4">
-        <div className="mb-4 flex items-center gap-2 px-1">
-          <Logo className="agq-logo-adaptive h-8" />
+      <aside className="flex w-60 shrink-0 flex-col border-r border-base-800/60 bg-base-900/40">
+        <div className="flex flex-col items-center gap-2 border-b border-base-800/60 px-5 py-5">
+          <Logo className="agq-logo-adaptive h-16 w-auto" />
+          <div className="text-[11px] text-base-400">Abastecimento particular</div>
         </div>
-        <span className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-base-500">
-          Abastecimento particular
-        </span>
-        <nav className="flex flex-col gap-0.5">
+        <nav className="flex flex-col gap-0.5 p-3">
           {ITENS_NAV.map((item) => (
             <NavLink
               key={item.to}
@@ -43,7 +43,14 @@ export function Layout({ children }: { children: ReactNode }) {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto flex flex-col gap-1 border-t border-base-800/60 pt-3 text-xs text-base-500">
+        <div className="mt-auto flex flex-col gap-1 border-t border-base-800/60 p-3 text-xs text-base-500">
+          <button
+            onClick={alternarTema}
+            className="mb-1 flex w-full items-center justify-between rounded-md border border-base-700 px-2.5 py-1.5 text-[11px] text-base-300 hover:bg-base-800 hover:text-base-100"
+          >
+            <span>Tema {tema === 'dark' ? 'escuro' : 'claro'}</span>
+            <span>{tema === 'dark' ? '🌙' : '☀️'}</span>
+          </button>
           {modoLocal ? (
             <span className="rounded-md bg-warn-bg px-2 py-1 text-warn-300">Modo local (sem Firebase)</span>
           ) : (

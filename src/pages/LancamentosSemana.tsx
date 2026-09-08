@@ -111,7 +111,6 @@ function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSa
   const dias = lancamento.dias ?? []
   const sab = dias.find((d) => diaSemanaCurto(d.data) === 'Sáb')
   const dom = dias.find((d) => diaSemanaCurto(d.data) === 'Dom')
-  const velMax = Math.max(0, ...[sab, dom].map((d) => (d?.velMaxima ? parseInt(d.velMaxima, 10) || 0 : 0)))
   const cidades = mesclarLocaisDoFimDeSemana(dias)
   const top = cidades[0]
   const outras = Math.max(cidades.length - 1, 0)
@@ -123,7 +122,7 @@ function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSa
       <button
         onClick={() => setAberto((a) => !a)}
         className="grid w-full items-stretch gap-0 py-1.5 text-left hover:bg-base-850/60"
-        style={{ gridTemplateColumns: 'minmax(220px,1.4fr) 100px 100px 80px minmax(180px,1fr) 100px 120px 24px' }}
+        style={{ gridTemplateColumns: 'minmax(220px,1.4fr) 100px 100px minmax(200px,1fr) 100px 120px 24px' }}
       >
         <Celula className="flex-row items-center justify-start gap-2 border-r-0 text-left">
           <PlacaMercosul placa={lancamento.placa} className="h-8 w-16 shrink-0" />
@@ -139,10 +138,6 @@ function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSa
         <Celula>
           <span className="text-[10px] uppercase tracking-wide text-base-500">Domingo</span>
           <span className="font-medium text-base-100">{dom ? formatKm(dom.kmPercorrido) : '—'}</span>
-        </Celula>
-        <Celula>
-          <span className="text-[10px] uppercase tracking-wide text-base-500">Vel. máx.</span>
-          <span className="text-base-100">{velMax ? `${velMax}` : '—'}</span>
         </Celula>
         <Celula className="items-center">
           <span className="text-[10px] uppercase tracking-wide text-base-500">Cidade (mais tempo)</span>
