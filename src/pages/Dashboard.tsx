@@ -37,11 +37,12 @@ export function Dashboard() {
       contaCorrente
         .filter((l) => l.semanasNaoRespondeu > 0)
         .slice()
-        .sort((a, b) => b.semanasNaoRespondeu - a.semanasNaoRespondeu)
+        .sort((a, b) => b.prejuizoNaoRespondeu - a.prejuizoNaoRespondeu)
         .slice(0, 15)
-        .map((l) => ({ gerente: l.gerente, semanas: l.semanasNaoRespondeu })),
+        .map((l) => ({ gerente: l.gerente, prejuizo: Math.round(l.prejuizoNaoRespondeu * 100) / 100, semanas: l.semanasNaoRespondeu })),
     [contaCorrente],
   )
+  const prejuizoTotalNaoResponderam = contaCorrente.reduce((acc, l) => acc + l.prejuizoNaoRespondeu, 0)
 
   const ultimaSemana = semanas[0]
   const lancamentosUltimaSemana = ultimaSemana ? (porSemana[ultimaSemana.id] ?? []) : []
@@ -135,17 +136,26 @@ export function Dashboard() {
           )}
         </div>
         <div className="rounded-xl border border-base-800/60 bg-base-900/60 p-4">
-          <h2 className="mb-3 text-sm font-semibold text-base-200">Ranking — gerentes que não responderam</h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-base-200">Prejuízo financeiro — gerentes que não responderam</h2>
+            {prejuizoTotalNaoResponderam > 0 && <span className="text-xs font-semibold text-warn-300">{formatMoeda(prejuizoTotalNaoResponderam)} no total</span>}
+          </div>
           {rankingNaoResponderam.length === 0 ? (
             <p className="text-sm text-base-500">Ninguém marcado como "não respondeu" no período.</p>
           ) : (
             <ResponsiveContainer width="100%" height={Math.max(160, rankingNaoResponderam.length * 28)}>
               <BarChart data={rankingNaoResponderam} layout="vertical" margin={{ left: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-base-800)" />
-                <XAxis type="number" allowDecimals={false} stroke="var(--color-base-400)" fontSize={11} />
+                <XAxis type="number" stroke="var(--color-base-400)" fontSize={11} />
                 <YAxis type="category" dataKey="gerente" stroke="var(--color-base-400)" fontSize={11} width={160} />
-                <Tooltip contentStyle={{ background: 'var(--color-base-850)', border: '1px solid var(--color-base-700)', fontSize: 12 }} />
-                <Bar dataKey="semanas" name="Semanas sem responder" fill="var(--color-warn-500)" radius={[0, 4, 4, 0]} />
+                <Tooltip
+                  contentStyle={{ background: 'var(--color-base-850)', border: '1px solid var(--color-base-700)', fontSize: 12 }}
+                  formatter={((v: number, _n: string, item: { payload: { semanas: number } }) => [
+                    `${formatMoeda(v)} (${item.payload.semanas} semana(s) sem responder)`,
+                    'Prejuízo',
+                  ]) as never}
+                />
+                <Bar dataKey="prejuizo" name="Prejuízo" fill="var(--color-warn-500)" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}

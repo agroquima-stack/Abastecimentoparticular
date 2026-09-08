@@ -27,6 +27,7 @@ export interface LinhaContaCorrente {
   saldo: number // devido - pago: positivo = empresa ainda deve ao gerente
   semanasComUso: number
   semanasNaoRespondeu: number
+  prejuizoNaoRespondeu: number // valor devido (ainda não pago) travado em semanas marcadas "não respondeu"
 }
 
 /**
@@ -54,6 +55,7 @@ export function agregarPorGerente(semanas: ComId<Semana>[], porSemana: Record<st
         saldo: 0,
         semanasComUso: 0,
         semanasNaoRespondeu: 0,
+        prejuizoNaoRespondeu: 0,
       }
       linha.placa = l.placa
       linha.filial = l.filial
@@ -63,7 +65,10 @@ export function agregarPorGerente(semanas: ComId<Semana>[], porSemana: Record<st
       linha.totalDevido += l.valorDevidoCalc || 0
       linha.totalPago += l.valorPago || 0
       if (!l.usoEmpresa && l.kmRodado > 0) linha.semanasComUso += 1
-      if (l.naoRespondeu) linha.semanasNaoRespondeu += 1
+      if (l.naoRespondeu) {
+        linha.semanasNaoRespondeu += 1
+        linha.prejuizoNaoRespondeu += Math.max((l.valorDevidoCalc || 0) - (l.valorPago || 0), 0)
+      }
       mapa.set(l.gerente, linha)
     }
   }

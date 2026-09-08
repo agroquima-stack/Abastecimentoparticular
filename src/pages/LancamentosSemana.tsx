@@ -71,52 +71,56 @@ export function LancamentosSemana() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-base-50">Lançamentos</h1>
-          <p className="text-sm text-base-400">{semanasFiltradas.length} semana(s) selecionada(s).</p>
+    <div className="flex h-[calc(100vh-3rem)] flex-col gap-4">
+      <div className="flex shrink-0 flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold text-base-50">Lançamentos</h1>
+            <p className="text-sm text-base-400">{semanasFiltradas.length} semana(s) selecionada(s).</p>
+          </div>
+          <FiltroPeriodo semanas={todasSemanas} selecionadas={periodoSelecionado} onChange={setPeriodoSelecionado} />
         </div>
-        <FiltroPeriodo semanas={todasSemanas} selecionadas={periodoSelecionado} onChange={setPeriodoSelecionado} />
-      </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-base-500">Status:</span>
-        {STATUS_OPCOES.map((o) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-base-500">Status:</span>
+          {STATUS_OPCOES.map((o) => (
+            <button
+              key={o.key}
+              onClick={() => alternarStatus(o.key)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                statusVisiveis.includes(o.key)
+                  ? 'border-brand-500/50 bg-brand-700/20 text-brand-200'
+                  : 'border-base-700 bg-base-900 text-base-500 hover:text-base-300'
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
           <button
-            key={o.key}
-            onClick={() => alternarStatus(o.key)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-              statusVisiveis.includes(o.key)
-                ? 'border-brand-500/50 bg-brand-700/20 text-brand-200'
-                : 'border-base-700 bg-base-900 text-base-500 hover:text-base-300'
-            }`}
+            onClick={() => setStatusVisiveis((atual) => atual.filter((k) => k !== 'pago'))}
+            className="ml-1 rounded-full border border-base-700 px-3 py-1 text-xs text-base-400 hover:bg-base-800 hover:text-base-200"
           >
-            {o.label}
+            Ocultar pagos
           </button>
-        ))}
-        <button
-          onClick={() => setStatusVisiveis((atual) => atual.filter((k) => k !== 'pago'))}
-          className="ml-1 rounded-full border border-base-700 px-3 py-1 text-xs text-base-400 hover:bg-base-800 hover:text-base-200"
-        >
-          Ocultar pagos
-        </button>
-        {statusVisiveis.length < TODOS_STATUS.length && (
-          <button onClick={() => setStatusVisiveis(TODOS_STATUS)} className="text-xs text-brand-300 hover:underline">
-            Mostrar todos
-          </button>
-        )}
+          {statusVisiveis.length < TODOS_STATUS.length && (
+            <button onClick={() => setStatusVisiveis(TODOS_STATUS)} className="text-xs text-brand-300 hover:underline">
+              Mostrar todos
+            </button>
+          )}
+        </div>
       </div>
 
-      {semanasFiltradas.map((semana) => (
-        <SecaoSemana
-          key={semana.id}
-          semana={semana}
-          lancamentos={porSemana[semana.id] ?? []}
-          mostrarTitulo={semanasFiltradas.length > 1}
-          statusVisiveis={statusVisiveis}
-        />
-      ))}
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pr-1">
+        {semanasFiltradas.map((semana) => (
+          <SecaoSemana
+            key={semana.id}
+            semana={semana}
+            lancamentos={porSemana[semana.id] ?? []}
+            mostrarTitulo={semanasFiltradas.length > 1}
+            statusVisiveis={statusVisiveis}
+          />
+        ))}
+      </div>
     </div>
   )
 }
