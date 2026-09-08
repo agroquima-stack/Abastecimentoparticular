@@ -20,8 +20,15 @@ export function ContaCorrente() {
 
   const contaCorrente = useMemo(() => agregarPorGerente(semanas, porSemana), [semanas, porSemana])
 
+  const [busca, setBusca] = useState('')
+  const contaCorrenteFiltrada = useMemo(() => {
+    const termo = busca.trim().toLowerCase()
+    if (!termo) return contaCorrente
+    return contaCorrente.filter((l) => l.gerente.toLowerCase().includes(termo) || l.placas.some((p) => p.toLowerCase().includes(termo)))
+  }, [contaCorrente, busca])
+
   const [gerenteSelecionado, setGerenteSelecionado] = useState<string | null>(null)
-  const linha = contaCorrente.find((l) => l.gerente === gerenteSelecionado) ?? contaCorrente[0]
+  const linha = contaCorrenteFiltrada.find((l) => l.gerente === gerenteSelecionado) ?? contaCorrenteFiltrada[0]
 
   const semanasOrdenadas = semanas.slice().sort((a, b) => a.id.localeCompare(b.id))
   const historicoDoGerente = linha
@@ -60,8 +67,25 @@ export function ContaCorrente() {
         <p className="text-sm text-base-400">Nenhum lançamento registrado ainda.</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
-          <div className="max-h-[70vh] overflow-y-auto rounded-xl border border-base-800/60 bg-base-900/60">
-            {contaCorrente.map((l) => (
+          <div className="flex flex-col gap-2">
+            <div className="relative">
+              <input
+                type="text"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar por nome ou placa…"
+                className="w-full rounded-lg border border-base-700 bg-base-900 py-1.5 pl-8 pr-3 text-sm text-base-100 outline-none focus:border-brand-400"
+              />
+              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-base-500">🔎</span>
+              {busca && (
+                <button onClick={() => setBusca('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-base-500 hover:text-base-200" title="Limpar busca">
+                  ✕
+                </button>
+              )}
+            </div>
+            <div className="max-h-[65vh] overflow-y-auto rounded-xl border border-base-800/60 bg-base-900/60">
+              {contaCorrenteFiltrada.length === 0 && <p className="px-3 py-2 text-sm text-base-500">Ninguém encontrado.</p>}
+              {contaCorrenteFiltrada.map((l) => (
               <button
                 key={l.gerente}
                 onClick={() => setGerenteSelecionado(l.gerente)}
@@ -75,7 +99,8 @@ export function ContaCorrente() {
                   <span className={l.saldo > 0 ? 'text-warn-400' : 'text-good-400'}>{formatMoeda(l.saldo)}</span>
                 </span>
               </button>
-            ))}
+              ))}
+            </div>
           </div>
 
           {linha && (

@@ -69,6 +69,8 @@ export function LancamentosSemana() {
     setStatusVisiveis((atual) => (atual.includes(key) ? atual.filter((k) => k !== key) : [...atual, key]))
   }
 
+  const [busca, setBusca] = useState('')
+
   if (todasSemanas.length === 0) {
     return <p className="text-sm text-base-400">Nenhuma semana importada ainda. Vá em "Importar semana" primeiro.</p>
   }
@@ -84,7 +86,26 @@ export function LancamentosSemana() {
           <FiltroPeriodo semanas={todasSemanas} selecionadas={periodoSelecionado} onChange={setPeriodoSelecionado} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <input
+              type="text"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por nome ou placa…"
+              className="w-64 rounded-lg border border-base-700 bg-base-900 py-1.5 pl-8 pr-3 text-sm text-base-100 outline-none focus:border-brand-400"
+            />
+            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-base-500">🔎</span>
+            {busca && (
+              <button
+                onClick={() => setBusca('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-base-500 hover:text-base-200"
+                title="Limpar busca"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <span className="text-xs text-base-500">Status:</span>
           {STATUS_OPCOES.map((o) => (
             <button
@@ -121,6 +142,7 @@ export function LancamentosSemana() {
             lancamentos={porSemana[semana.id] ?? []}
             mostrarTitulo={semanasFiltradas.length > 1}
             statusVisiveis={statusVisiveis}
+            busca={busca}
           />
         ))}
       </div>
@@ -133,16 +155,23 @@ function SecaoSemana({
   lancamentos,
   mostrarTitulo,
   statusVisiveis,
+  busca,
 }: {
   semana: ComId<Semana>
   lancamentos: ComId<Lancamento>[]
   mostrarTitulo: boolean
   statusVisiveis: StatusKey[]
+  busca: string
 }) {
-  const ordenados = useMemo(
-    () => ordenarLancamentos(lancamentos.filter((l) => statusVisiveis.includes(statusDoLancamento(l).key))),
-    [lancamentos, statusVisiveis],
-  )
+  const ordenados = useMemo(() => {
+    const termo = busca.trim().toLowerCase()
+    const filtrados = lancamentos.filter(
+      (l) =>
+        statusVisiveis.includes(statusDoLancamento(l).key) &&
+        (!termo || l.gerente.toLowerCase().includes(termo) || l.placa.toLowerCase().includes(termo)),
+    )
+    return ordenarLancamentos(filtrados)
+  }, [lancamentos, statusVisiveis, busca])
 
   async function salvar(placa: string, patch: Partial<Lancamento>, atual: Lancamento) {
     const mesclado = { ...atual, ...patch }
@@ -162,7 +191,7 @@ function SecaoSemana({
       )}
       {ordenados.length === 0 ? (
         <p className="rounded-lg border border-base-800/60 bg-base-900/40 px-4 py-3 text-sm text-base-500">
-          Nada pra mostrar com esse filtro de status nessa semana.
+          Nada pra mostrar com esses filtros nessa semana.
         </p>
       ) : (
         ordenados.map((l) => <CardLancamento key={l.placa} lancamento={l} onSalvar={(patch) => salvar(l.placa, patch, l)} />)
