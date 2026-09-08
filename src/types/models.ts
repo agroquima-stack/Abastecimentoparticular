@@ -28,6 +28,11 @@ export interface Semana {
   origemArquivo: string
 }
 
+export interface LocaisDia {
+  data: string // ISO
+  locais: string[]
+}
+
 export interface Lancamento {
   placa: string
   gerente: string
@@ -39,6 +44,7 @@ export interface Lancamento {
   dataPagamento: string | null
   observacao: string
   valorDevidoCalc: number
+  locaisPorDia?: LocaisDia[]
 }
 
 export type ComId<T> = T & { id: string }

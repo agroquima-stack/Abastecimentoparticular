@@ -5,6 +5,7 @@ import { useParametros } from '../hooks/useParametros'
 import { useSemanas } from '../hooks/useSemanas'
 import { useLancamentos } from '../hooks/useLancamentos'
 import { parseRotaXls, type ResultadoParseRota } from '../lib/parseRota'
+import { parseParadasXls, type ParadasPorVeiculo } from '../lib/parseParadas'
 import { formatDataBR, formatKm } from '../lib/format'
 
 export function ImportarSemana() {
@@ -13,11 +14,16 @@ export function ImportarSemana() {
   const { parametros } = useParametros()
   const { semanas, importarDeRota } = useSemanas()
   const inputRef = useRef<HTMLInputElement>(null)
+  const inputParadasRef = useRef<HTMLInputElement>(null)
 
   const [nomeArquivo, setNomeArquivo] = useState('')
   const [resultado, setResultado] = useState<ResultadoParseRota | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [importando, setImportando] = useState(false)
+
+  const [nomeArquivoParadas, setNomeArquivoParadas] = useState('')
+  const [paradas, setParadas] = useState<ParadasPorVeiculo | null>(null)
+  const [erroParadas, setErroParadas] = useState<string | null>(null)
 
   const semanaJaExiste = resultado ? semanas.some((s) => s.id === resultado.dataInicio) : false
 
@@ -30,6 +36,18 @@ export function ImportarSemana() {
       setResultado(r)
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao ler o arquivo.')
+    }
+  }
+
+  async function onArquivoParadasSelecionado(file: File) {
+    setErroParadas(null)
+    setParadas(null)
+    setNomeArquivoParadas(file.name)
+    try {
+      const r = await parseParadasXls(file)
+      setParadas(r)
+    } catch (e) {
+      setErroParadas(e instanceof Error ? e.message : 'Erro ao ler o arquivo.')
     }
   }
 
@@ -47,6 +65,7 @@ export function ImportarSemana() {
         parametros.kmLExigido,
         nomeArquivo,
         existentes,
+        paradas ?? undefined,
       )
       navigate(`/lancamentos?semana=${semanaId}`)
     } finally {
@@ -151,6 +170,40 @@ export function ImportarSemana() {
               Placas no arquivo sem cadastro: {linhasNaoReconhecidas.map((l) => l.placa).join(', ')}
             </p>
           )}
+
+          <div className="mt-5 border-t border-base-800 pt-4">
+            <h3 className="mb-1 text-sm font-semibold text-base-200">Relatório de Paradas (opcional)</h3>
+            <p className="mb-2 text-xs text-base-500">
+              Envie também o relatório de Paradas do mesmo período pra registrar as cidades/locais visitados por
+              cada gerente no sábado e no domingo — ajuda a conferir se o uso foi mesmo particular.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => inputParadasRef.current?.click()}
+                className="rounded-lg border border-base-700 bg-base-900 px-3 py-1.5 text-xs font-medium text-base-200 hover:bg-base-800"
+              >
+                Selecionar arquivo de Paradas
+              </button>
+              <input
+                ref={inputParadasRef}
+                type="file"
+                accept=".xls,.xlsx"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) onArquivoParadasSelecionado(file)
+                }}
+              />
+              {nomeArquivoParadas && <span className="text-xs text-base-500">{nomeArquivoParadas}</span>}
+            </div>
+            {erroParadas && <p className="mt-2 text-xs text-crit-400">{erroParadas}</p>}
+            {paradas && (
+              <p className="mt-2 text-xs text-good-400">
+                {paradas.size} veículo(s) com locais reconhecidos — serão salvos junto com esta semana.
+              </p>
+            )}
+          </div>
+
           <button
             onClick={confirmar}
             disabled={importando}

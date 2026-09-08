@@ -57,9 +57,16 @@ export function observarColecao<T extends object>(
   return () => set.delete(listener)
 }
 
+/** Firestore recusa campos com valor `undefined` — o JSON round-trip remove essas chaves (mesmo
+ * efeito que `JSON.stringify` já teria no localStorage, então o comportamento fica igual nos
+ * dois modos). */
+function semUndefined<T>(dados: T): T {
+  return JSON.parse(JSON.stringify(dados))
+}
+
 export async function gravarDoc<T extends object>(path: string, id: string, dados: T): Promise<void> {
   if (FIREBASE_CONFIGURADO && firestore) {
-    await fsSetDoc(doc(firestore, path, id), dados as Record<string, unknown>)
+    await fsSetDoc(doc(firestore, path, id), semUndefined(dados) as Record<string, unknown>)
     return
   }
   memoria[path] = memoria[path] || {}
@@ -70,7 +77,7 @@ export async function gravarDoc<T extends object>(path: string, id: string, dado
 
 export async function atualizarDoc(path: string, id: string, patch: Record<string, unknown>): Promise<void> {
   if (FIREBASE_CONFIGURADO && firestore) {
-    await fsUpdateDoc(doc(firestore, path, id), patch)
+    await fsUpdateDoc(doc(firestore, path, id), semUndefined(patch))
     return
   }
   memoria[path] = memoria[path] || {}
@@ -93,7 +100,7 @@ export async function removerDoc(path: string, id: string): Promise<void> {
 export async function gravarLote<T extends object>(path: string, itens: Record<string, T>): Promise<void> {
   if (FIREBASE_CONFIGURADO && firestore) {
     const db = firestore
-    await Promise.all(Object.entries(itens).map(([id, dados]) => fsSetDoc(doc(db, path, id), dados as Record<string, unknown>)))
+    await Promise.all(Object.entries(itens).map(([id, dados]) => fsSetDoc(doc(db, path, id), semUndefined(dados) as Record<string, unknown>)))
     return
   }
   memoria[path] = { ...(memoria[path] || {}), ...(itens as Record<string, Record<string, unknown>>) }

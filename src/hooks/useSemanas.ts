@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { calcularValorDevido } from '../lib/calculo'
+import type { ParadasPorVeiculo } from '../lib/parseParadas'
 import type { ResultadoParseRota } from '../lib/parseRota'
 import { atualizarDoc, gravarDoc, gravarLote, observarColecao } from '../lib/store'
 import type { ComId, Lancamento, Semana, Veiculo } from '../types/models'
@@ -24,6 +25,7 @@ export function useSemanas() {
     kmLExigido: number,
     nomeArquivo: string,
     existentes: Record<string, ComId<Lancamento>> = {},
+    paradas?: ParadasPorVeiculo,
   ) {
     const semanaId = resultado.dataInicio
     const porPlaca = new Map(resultado.linhas.map((l) => [l.placa, l]))
@@ -46,6 +48,7 @@ export function useSemanas() {
         dataPagamento: existente?.dataPagamento ?? null,
         observacao: existente?.observacao ?? '',
         valorDevidoCalc: calcularValorDevido(kmRodado, usoEmpresa, kmLExigido, precoDiesel),
+        locaisPorDia: paradas?.get(v.placa) ?? existente?.locaisPorDia,
       }
     }
 

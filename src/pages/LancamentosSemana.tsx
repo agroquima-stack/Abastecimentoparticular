@@ -59,6 +59,7 @@ export function LancamentosSemana() {
               <th className="px-3 py-2 text-right">Pago (R$)</th>
               <th className="px-3 py-2">Data pgto.</th>
               <th className="px-3 py-2">Obs.</th>
+              <th className="px-3 py-2">Locais (Paradas)</th>
             </tr>
           </thead>
           <tbody>
@@ -134,6 +135,19 @@ function LinhaLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onS
           placeholder="opcional"
           className="w-32 rounded-md border border-base-700 bg-base-900 px-2 py-1 text-sm outline-none focus:border-brand-400"
         />
+      </td>
+      <td className="max-w-[220px] px-3 py-1.5 text-xs text-base-400">
+        {lancamento.locaisPorDia && lancamento.locaisPorDia.length > 0 ? (
+          <div className="flex flex-col gap-0.5">
+            {lancamento.locaisPorDia.map((d) => (
+              <span key={d.data} title={d.locais.join(', ')} className="truncate">
+                <b className="text-base-300">{formatDataBR(d.data)}:</b> {d.locais.length ? d.locais.join(', ') : '—'}
+              </span>
+            ))}
+          </div>
+        ) : (
+          '—'
+        )}
       </td>
     </tr>
   )
