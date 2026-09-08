@@ -1,0 +1,188 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  /* Tokens indiretos: o valor real é redefinido por tema logo abaixo (:root / [data-theme]) */
+  --color-base-950: var(--base-950);
+  --color-base-900: var(--base-900);
+  --color-base-850: var(--base-850);
+  --color-base-800: var(--base-800);
+  --color-base-750: var(--base-750);
+  --color-base-700: var(--base-700);
+  --color-base-600: var(--base-600);
+  --color-base-500: var(--base-500);
+  --color-base-400: var(--base-400);
+  --color-base-300: var(--base-300);
+  --color-base-200: var(--base-200);
+  --color-base-100: var(--base-100);
+  --color-base-50: var(--base-50);
+
+  /* Azul da marca Agroquima */
+  --color-brand-900: var(--brand-900);
+  --color-brand-800: var(--brand-800);
+  --color-brand-700: var(--brand-700);
+  --color-brand-600: var(--brand-600);
+  --color-brand-500: var(--brand-500);
+  --color-brand-400: var(--brand-400);
+  --color-brand-300: var(--brand-300);
+
+  /* Marca (logo) - independentes do tema de status, mas reagem a claro/escuro para legibilidade */
+  --color-agq-blue: #0e6fb4;
+  --color-agq-black: var(--agq-ink);
+
+  /* Status */
+  --color-good-600: #15803d;
+  --color-good-500: #22a34d;
+  --color-good-400: #34c95f;
+  --color-good-bg: var(--good-bg);
+
+  --color-warn-600: #b45309;
+  --color-warn-500: #d69113;
+  --color-warn-400: #f0b429;
+  --color-warn-bg: var(--warn-bg);
+
+  --color-crit-600: #b91c1c;
+  --color-crit-500: #dc2626;
+  --color-crit-400: #ef4444;
+  --color-crit-bg: var(--crit-bg);
+
+  --color-neutral-500: #6b7285;
+  --color-neutral-bg: var(--base-800);
+}
+
+/* ---------- Tema escuro (padrão) ---------- */
+:root {
+  color-scheme: dark;
+
+  --base-950: #0a0b0d;
+  --base-900: #101217;
+  --base-850: #151822;
+  --base-800: #1b1e29;
+  --base-750: #212533;
+  --base-700: #2a2f40;
+  --base-600: #383e52;
+  --base-500: #4b5268;
+  --base-400: #6b7285;
+  --base-300: #9198a8;
+  --base-200: #b8bdc8;
+  --base-100: #dde0e6;
+  --base-50: #f2f3f5;
+
+  --brand-900: #05122b;
+  --brand-800: #0a1d42;
+  --brand-700: #0f2a5c;
+  --brand-600: #14508c;
+  --brand-500: #0e6fb4;
+  --brand-400: #3b93d1;
+  --brand-300: #6fb3e2;
+
+  --agq-ink: #f2f3f5;
+  --good-bg: #0d2718;
+  --warn-bg: #2b2308;
+  --crit-bg: #2b0d0d;
+
+  --watermark-opacity: 0.055;
+}
+
+/* ---------- Tema claro ---------- */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --base-950: #f5f6f8;
+  --base-900: #ffffff;
+  --base-850: #ffffff;
+  --base-800: #eef0f3;
+  --base-750: #e6e9ee;
+  --base-700: #dde1e7;
+  --base-600: #c5cbd4;
+  --base-500: #8b93a1;
+  --base-400: #6b7280;
+  --base-300: #4b5567;
+  --base-200: #313a4a;
+  --base-100: #171b26;
+  --base-50: #05070a;
+
+  --brand-900: #d6ecfa;
+  --brand-800: #b7dcf3;
+  --brand-700: #8dc6ea;
+  --brand-600: #4fa2d9;
+  --brand-500: #0e6fb4;
+  --brand-400: #0b5a92;
+  --brand-300: #094a78;
+
+  --agq-ink: #14181f;
+  --good-bg: #e3f6ea;
+  --warn-bg: #fdf1da;
+  --crit-bg: #fbe3e3;
+
+  --watermark-opacity: 0.07;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-base-950);
+  color: var(--color-base-100);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-base-900);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-base-700);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-base-600);
+}
+
+/* Marca d'água: logo grande e sutil atrás do conteúdo das páginas */
+.agq-watermark {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.agq-watermark img {
+  width: 46vw;
+  max-width: 640px;
+  min-width: 360px;
+  opacity: var(--watermark-opacity);
+}
+
+/* Logo com contorno/preto original: no tema escuro, inverte a luminosidade preservando o
+   tom azul da marca (invert+hue-rotate), para não "sumir" contra fundos escuros sem precisar
+   de uma caixa de fundo branco. No tema claro usa as cores originais (preto/azul). */
+:root:not([data-theme='light']) .agq-logo-adaptive {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+@media print {
+  aside {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  body {
+    background: #fff !important;
+  }
+}

@@ -1,0 +1,49 @@
+import { useEffect, useState } from 'react'
+import { calcularValorDevido } from '../lib/calculo'
+import { atualizarDoc, observarColecao } from '../lib/store'
+import type { ComId, Lancamento } from '../types/models'
+
+export function useLancamentos(semanaId: string | null) {
+  const [lancamentos, setLancamentos] = useState<ComId<Lancamento>[] | null>(null)
+
+  useEffect(() => {
+    if (!semanaId) {
+      setLancamentos(null)
+      return
+    }
+    return observarColecao<Lancamento>(`semanas/${semanaId}/lancamentos`, (r) =>
+      setLancamentos(r.slice().sort((a, b) => a.gerente.localeCompare(b.gerente))),
+    )
+  }, [semanaId])
+
+  async function salvarLancamento(
+    semanaIdAlvo: string,
+    placa: string,
+    patch: Partial<Lancamento>,
+    kmLExigido: number,
+    precoDiesel: number,
+    atual: Lancamento,
+  ) {
+    const mesclado = { ...atual, ...patch }
+    const valorDevidoCalc = calcularValorDevido(mesclado.kmRodado, mesclado.usoEmpresa, kmLExigido, precoDiesel)
+    await atualizarDoc(`semanas/${semanaIdAlvo}/lancamentos`, placa, { ...patch, valorDevidoCalc })
+  }
+
+  return { lancamentos: lancamentos ?? [], carregando: lancamentos === null, salvarLancamento }
+}
+
+/** Todas as semanas x lançamentos, usado no dashboard e na conta corrente (poucas linhas, tudo em memória). */
+export function useTodosLancamentos(semanaIds: string[]) {
+  const [porSemana, setPorSemana] = useState<Record<string, ComId<Lancamento>[]>>({})
+
+  useEffect(() => {
+    const unsubs = semanaIds.map((id) =>
+      observarColecao<Lancamento>(`semanas/${id}/lancamentos`, (itens) =>
+        setPorSemana((prev) => ({ ...prev, [id]: itens })),
+      ),
+    )
+    return () => unsubs.forEach((u) => u())
+  }, [semanaIds.join(',')])
+
+  return porSemana
+}

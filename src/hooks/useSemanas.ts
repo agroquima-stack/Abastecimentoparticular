@@ -1,0 +1,69 @@
+import { useEffect, useState } from 'react'
+import { calcularValorDevido } from '../lib/calculo'
+import type { ResultadoParseRota } from '../lib/parseRota'
+import { atualizarDoc, gravarDoc, gravarLote, observarColecao } from '../lib/store'
+import type { ComId, Lancamento, Semana, Veiculo } from '../types/models'
+
+const PATH = 'semanas'
+
+export function useSemanas() {
+  const [semanas, setSemanas] = useState<ComId<Semana>[] | null>(null)
+
+  useEffect(() => observarColecao<Semana>(PATH, (r) => setSemanas(r.slice().sort((a, b) => b.id.localeCompare(a.id)))), [])
+
+  /**
+   * Cria (ou substitui) a semana a partir do relatório de Rota: um lançamento por veículo
+   * cadastrado, com o km do período já calculado e valor devido calculado com os parâmetros
+   * vigentes no momento da importação (fica "congelado" na semana, não muda se o preço do
+   * diesel mudar depois — histórico não pode ser retroativamente alterado).
+   */
+  async function importarDeRota(
+    resultado: ResultadoParseRota,
+    veiculos: ComId<Veiculo>[],
+    precoDiesel: number,
+    kmLExigido: number,
+    nomeArquivo: string,
+    existentes: Record<string, ComId<Lancamento>> = {},
+  ) {
+    const semanaId = resultado.dataInicio
+    const porPlaca = new Map(resultado.linhas.map((l) => [l.placa, l]))
+
+    const lote: Record<string, Lancamento> = {}
+    for (const v of veiculos) {
+      if (!v.ativo) continue
+      const linha = porPlaca.get(v.placa)
+      const kmRodado = linha?.kmPercorrido ?? 0
+      const existente = existentes[v.placa]
+      const usoEmpresa = existente?.usoEmpresa ?? false
+      lote[v.placa] = {
+        placa: v.placa,
+        gerente: v.gerente,
+        filial: v.filial,
+        kmRodado,
+        usoEmpresa,
+        valorComprovante: existente?.valorComprovante ?? null,
+        valorPago: existente?.valorPago ?? null,
+        dataPagamento: existente?.dataPagamento ?? null,
+        observacao: existente?.observacao ?? '',
+        valorDevidoCalc: calcularValorDevido(kmRodado, usoEmpresa, kmLExigido, precoDiesel),
+      }
+    }
+
+    await gravarDoc(PATH, semanaId, {
+      dataInicio: resultado.dataInicio,
+      dataFim: resultado.dataFim,
+      precoDieselUsado: precoDiesel,
+      kmLExigidoUsado: kmLExigido,
+      importadoEm: new Date().toISOString(),
+      origemArquivo: nomeArquivo,
+    } satisfies Semana)
+    await gravarLote(`${PATH}/${semanaId}/lancamentos`, lote)
+    return semanaId
+  }
+
+  async function atualizarParametrosDaSemana(semanaId: string, patch: Partial<Semana>) {
+    await atualizarDoc(PATH, semanaId, patch)
+  }
+
+  return { semanas: semanas ?? [], carregando: semanas === null, importarDeRota, atualizarParametrosDaSemana }
+}

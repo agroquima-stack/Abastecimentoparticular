@@ -1,0 +1,314 @@
+[
+  {
+    "placa": "TFW5B02",
+    "gerente": "ABEL ALEXANDRE FERREIRA HANUN",
+    "filial": "MOR",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "SCY2A37",
+    "gerente": "AKYLLA OLIVEIRA DA SILVA",
+    "filial": "CON",
+    "modelo": "RANGER",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFD1G32",
+    "gerente": "ALDAI MACIEL LEMOS",
+    "filial": "GUR",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFP2J38",
+    "gerente": "ALDO MAIA ASSUNCAO JUNIOR",
+    "filial": "ADM",
+    "modelo": "I/GWM",
+    "tipo": "PAS",
+    "ativo": true
+  },
+  {
+    "placa": "QTQ2770",
+    "gerente": "ANDERSON LEONARDO PEREIRA DA",
+    "filial": "RED",
+    "modelo": "S10 LTZ",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFY6F92",
+    "gerente": "ANDRE FERNANDO ALVES MEDEIROS",
+    "filial": "CRI",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFW2C07",
+    "gerente": "ANTONIO CARLOS DE LIMA",
+    "filial": "POR",
+    "modelo": "CHEVROL",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFM4J77",
+    "gerente": "CLESIO FERNANDES DE BRITO ALVES",
+    "filial": "JUS",
+    "modelo": "CHEVROL",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "RMC5C14",
+    "gerente": "DANIEL BARREIRA DIAS",
+    "filial": "FOR",
+    "modelo": "FORD",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TGH3H92",
+    "gerente": "EDVANDO JOSE DE SOUZA",
+    "filial": "URU",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "RMC4C74",
+    "gerente": "ENIO JOSAFE CONCEICAO",
+    "filial": "MAR",
+    "modelo": "FORD",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "SCY2A97",
+    "gerente": "EVANDRO MACEDO DE FREITAS",
+    "filial": "FAG",
+    "modelo": "RANGER",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TVE7G25",
+    "gerente": "FABIO AUGUSTO DE ALENCAR",
+    "filial": "ARG",
+    "modelo": "FORD/",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFG2I68",
+    "gerente": "FREDERICO CARRIJO GUIMARAES",
+    "filial": "MTZ",
+    "modelo": "FIAT/STRA",
+    "tipo": "PIK",
+    "ativo": true
+  },
+  {
+    "placa": "SCU9D90",
+    "gerente": "GEOVANNY VIGILATO MELO",
+    "filial": "FCB",
+    "modelo": "MMC/TRIT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "MWA9A69",
+    "gerente": "GUSTAVO ALVES CUNHA",
+    "filial": "ALT",
+    "modelo": "RANGER",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFJ0E31",
+    "gerente": "GUSTAVO ALVES CUNHA",
+    "filial": "ADM",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "QWF2G21",
+    "gerente": "IALE ALVES MILHOMEM",
+    "filial": "IMP",
+    "modelo": "RANGER",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFS3J52",
+    "gerente": "JOAO CLAUDIO BARROS DE PAIVA",
+    "filial": "UBR",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TVA1C64",
+    "gerente": "JOSE CARLOS RIBEIRO E SILVA",
+    "filial": "FOR",
+    "modelo": "FORD",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "RMB2B37",
+    "gerente": "LEANDRO ALVES KATAKI",
+    "filial": "RVD",
+    "modelo": "RANGER",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TVF7B06",
+    "gerente": "LEANDRO CAMPOS RODRIGUES",
+    "filial": "ARG",
+    "modelo": "MMC/TRIT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "PBT0C04",
+    "gerente": "LEONARDO JOSE FREITAS",
+    "filial": "CAN",
+    "modelo": "S10 LTZ",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFP1I42",
+    "gerente": "LORENA MOISES DUTRA",
+    "filial": "PGM",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFU8F92",
+    "gerente": "MARCELO AUGUSTO MULLER",
+    "filial": "PLA",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFV3J33",
+    "gerente": "MARCIO GUIMARAES SUGUIKAWA",
+    "filial": "CAN",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "RBW5H96",
+    "gerente": "MARIO LUIZ REATEGUI DE ALMEIDA",
+    "filial": "ADM",
+    "modelo": "FIAT/TOR",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFX1D72",
+    "gerente": "MARLON GERMANO VIEIRA",
+    "filial": "PAL",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "SBY4F20",
+    "gerente": "NABIO BARROS COSTA",
+    "filial": "MOR",
+    "modelo": "S10 HC",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFY4I32",
+    "gerente": "NATALINO WILKER MACHADO NETO",
+    "filial": "RIA",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFU0C62",
+    "gerente": "PEDRO MACIEL DOS REIS",
+    "filial": "SFX",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TYO7C03",
+    "gerente": "RAFAEL BARSCH",
+    "filial": "ADM",
+    "modelo": "I/LR",
+    "tipo": "PAS",
+    "ativo": true
+  },
+  {
+    "placa": "QVY5A37",
+    "gerente": "RENATO TEODORO MAGALHAES",
+    "filial": "JAT",
+    "modelo": "L200",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TGH6J65",
+    "gerente": "REVALINO PEREIRA NETO",
+    "filial": "MTZ",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TVC6I05",
+    "gerente": "SERGIO ADRIANO FIUZA CARDOSO",
+    "filial": "MTZ",
+    "modelo": "I/FORD",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TGH9B27",
+    "gerente": "THIAGO PEREIRA VAZ",
+    "filial": "MOZ",
+    "modelo": "CHEVROL",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "SPX4D28",
+    "gerente": "VINICIUS TEODORO FERREIRA BRITO",
+    "filial": "BAR",
+    "modelo": "S10 LTZ",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "SCX1J47",
+    "gerente": "WENDER PARTATA SANTOS",
+    "filial": "RVD",
+    "modelo": "FORD",
+    "tipo": "CNT",
+    "ativo": true
+  },
+  {
+    "placa": "TFF9I33",
+    "gerente": "WILLIAN RODRIGUES ANTIGO",
+    "filial": "XRA",
+    "modelo": "S10 WT",
+    "tipo": "CNT",
+    "ativo": true
+  }
+]
