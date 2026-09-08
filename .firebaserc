@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "agroquima-transportes"
+  },
+  "targets": {
+    "agroquima-transportes": {
+      "hosting": {
+        "abastecimento": [
+          "agroquima-abastecimento"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
