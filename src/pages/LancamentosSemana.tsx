@@ -3,7 +3,7 @@ import { useSemanas } from '../hooks/useSemanas'
 import { useTodosLancamentos } from '../hooks/useLancamentos'
 import { atualizarDoc } from '../lib/store'
 import { mesclarLocaisDoFimDeSemana, temDadosNoFimDeSemana } from '../lib/agregacoes'
-import { calcularValorDevido } from '../lib/calculo'
+import { calcularValorDevido, dentroDaTolerancia } from '../lib/calculo'
 import { formatDataBR, formatKm, formatMinutos, formatMoeda, diaSemanaCurto } from '../lib/format'
 import { PlacaMercosul } from '../components/PlacaMercosul'
 import { FiltroPeriodo, filtrarSemanas } from '../components/FiltroPeriodo'
@@ -172,7 +172,8 @@ function statusDoLancamento(l: Lancamento): { key: StatusKey; label: string; tom
   if (l.usoEmpresa) return { key: 'uso_empresa', label: 'Uso empresa', tom: 'neutro' }
   if (l.naoRespondeu) return { key: 'nao_respondeu', label: 'Não respondeu', tom: 'atencao' }
   if (l.valorDevidoCalc === 0) return { key: 'sem_valor', label: '—', tom: 'neutro' }
-  if ((l.valorPago ?? 0) >= l.valorDevidoCalc) return { key: 'pago', label: 'Pago', tom: 'bom' }
+  // Tolerância de 10%: não precisa bater 100% do valor apurado pra fechar como "Pago".
+  if (dentroDaTolerancia(l.valorPago ?? 0, l.valorDevidoCalc)) return { key: 'pago', label: 'Pago', tom: 'bom' }
   return { key: 'debito', label: 'Débito', tom: 'atencao' }
 }
 

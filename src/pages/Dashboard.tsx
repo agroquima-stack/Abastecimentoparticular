@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react'
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { KpiCard } from '../components/KpiCard'
 import { FiltroPeriodo, filtrarSemanas } from '../components/FiltroPeriodo'
 import { useSemanas } from '../hooks/useSemanas'
 import { useTodosLancamentos } from '../hooks/useLancamentos'
 import { agregarPorGerente, agregarPorSemana } from '../lib/agregacoes'
+import { TOLERANCIA_REEMBOLSO, percentualApurado } from '../lib/calculo'
 import { formatMoeda, formatKm, formatDataBR } from '../lib/format'
+
+const LIMITE_TOLERANCIA_PCT = (1 - TOLERANCIA_REEMBOLSO) * 100 // 90%
 
 export function Dashboard() {
   const { semanas: todasSemanas, carregando } = useSemanas()
@@ -43,6 +46,20 @@ export function Dashboard() {
     [contaCorrente],
   )
   const prejuizoTotalNaoResponderam = contaCorrente.reduce((acc, l) => acc + l.prejuizoNaoRespondeu, 0)
+
+  const percentualApuradoPorGerente = useMemo(
+    () =>
+      contaCorrente
+        .filter((l) => l.totalDevido > 0)
+        .map((l) => ({
+          gerente: l.gerente,
+          percentual: percentualApurado(l.totalPago, l.totalDevido) ?? 0,
+          pendente: Math.max(l.totalDevido - l.totalPago, 0),
+        }))
+        .sort((a, b) => a.percentual - b.percentual)
+        .slice(0, 15),
+    [contaCorrente],
+  )
 
   const ultimaSemana = semanas[0]
   const lancamentosUltimaSemana = ultimaSemana ? (porSemana[ultimaSemana.id] ?? []) : []
@@ -160,6 +177,37 @@ export function Dashboard() {
             </ResponsiveContainer>
           )}
         </div>
+      </div>
+
+      <div className="rounded-xl border border-base-800/60 bg-base-900/60 p-4">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-base-200">% do valor apurado que o gerente abasteceu</h2>
+          <span className="text-xs text-base-500">Tolerância: {LIMITE_TOLERANCIA_PCT}% ou mais conta como em dia</span>
+        </div>
+        {percentualApuradoPorGerente.length === 0 ? (
+          <p className="text-sm text-base-500">Sem valor apurado no período pra comparar.</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={Math.max(160, percentualApuradoPorGerente.length * 28)}>
+            <BarChart data={percentualApuradoPorGerente} layout="vertical" margin={{ left: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-base-800)" />
+              <XAxis type="number" domain={[0, (max: number) => Math.max(100, max)]} unit="%" stroke="var(--color-base-400)" fontSize={11} />
+              <YAxis type="category" dataKey="gerente" stroke="var(--color-base-400)" fontSize={11} width={160} />
+              <Tooltip
+                contentStyle={{ background: 'var(--color-base-850)', border: '1px solid var(--color-base-700)', fontSize: 12 }}
+                formatter={((v: number, _n: string, item: { payload: { pendente: number } }) => [
+                  `${v}% do apurado${item.payload.pendente > 0 ? ` · ${formatMoeda(item.payload.pendente)} pendente` : ''}`,
+                  '% abastecido',
+                ]) as never}
+              />
+              <ReferenceLine x={LIMITE_TOLERANCIA_PCT} stroke="var(--color-base-400)" strokeDasharray="4 4" label={{ value: `${LIMITE_TOLERANCIA_PCT}%`, position: 'insideTopRight', fill: 'var(--color-base-400)', fontSize: 10 }} />
+              <Bar dataKey="percentual" radius={[0, 4, 4, 0]}>
+                {percentualApuradoPorGerente.map((d) => (
+                  <Cell key={d.gerente} fill={d.percentual >= LIMITE_TOLERANCIA_PCT ? 'var(--color-good-500)' : 'var(--color-warn-500)'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       <div className="rounded-xl border border-base-800/60 bg-base-900/60 p-4">
