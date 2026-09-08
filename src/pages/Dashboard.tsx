@@ -47,10 +47,13 @@ export function Dashboard() {
   )
   const prejuizoTotalNaoResponderam = contaCorrente.reduce((acc, l) => acc + l.prejuizoNaoRespondeu, 0)
 
+  // Só entra aqui quem já registrou algum valor no lançamento (totalPago > 0) e mesmo assim não
+  // bateu o valor apurado — quem ainda nem lançou nada não é "abaixo do valor", é só pendente de
+  // preencher (isso já aparece no ranking de saldo em aberto, não precisa duplicar aqui).
   const percentualApuradoPorGerente = useMemo(
     () =>
       contaCorrente
-        .filter((l) => l.totalDevido > 0)
+        .filter((l) => l.totalDevido > 0 && l.totalPago > 0 && l.totalPago < l.totalDevido)
         .map((l) => ({
           gerente: l.gerente,
           percentual: percentualApurado(l.totalPago, l.totalDevido) ?? 0,
@@ -181,11 +184,11 @@ export function Dashboard() {
 
       <div className="rounded-xl border border-base-800/60 bg-base-900/60 p-4">
         <div className="mb-1 flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-base-200">% do valor apurado que o gerente abasteceu</h2>
+          <h2 className="text-sm font-semibold text-base-200">Lançaram valor abaixo do apurado</h2>
           <span className="text-xs text-base-500">Tolerância: {LIMITE_TOLERANCIA_PCT}% ou mais conta como em dia</span>
         </div>
         {percentualApuradoPorGerente.length === 0 ? (
-          <p className="text-sm text-base-500">Sem valor apurado no período pra comparar.</p>
+          <p className="text-sm text-base-500">Ninguém lançou valor abaixo do apurado no período.</p>
         ) : (
           <ResponsiveContainer width="100%" height={Math.max(160, percentualApuradoPorGerente.length * 28)}>
             <BarChart data={percentualApuradoPorGerente} layout="vertical" margin={{ left: 8 }}>
