@@ -4,7 +4,7 @@ import { KpiCard } from '../components/KpiCard'
 import { FiltroPeriodo, filtrarSemanas } from '../components/FiltroPeriodo'
 import { useSemanas } from '../hooks/useSemanas'
 import { useTodosLancamentos } from '../hooks/useLancamentos'
-import { agregarPorGerente, agregarPorSemana } from '../lib/agregacoes'
+import { agregarJustificativasUsoEmpresa, agregarPorGerente, agregarPorSemana } from '../lib/agregacoes'
 import { TOLERANCIA_REEMBOLSO, percentualApurado } from '../lib/calculo'
 import { formatMoeda, formatKm, formatDataBR } from '../lib/format'
 
@@ -63,6 +63,8 @@ export function Dashboard() {
         .slice(0, 15),
     [contaCorrente],
   )
+
+  const justificativasUsoEmpresa = useMemo(() => agregarJustificativasUsoEmpresa(porSemana), [porSemana])
 
   const ultimaSemana = semanas[0]
   const lancamentosUltimaSemana = ultimaSemana ? (porSemana[ultimaSemana.id] ?? []) : []
@@ -210,6 +212,34 @@ export function Dashboard() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-base-800/60 bg-base-900/60 p-4">
+        <h2 className="mb-3 text-sm font-semibold text-base-200">Uso empresa — por justificativa</h2>
+        {justificativasUsoEmpresa.length === 0 ? (
+          <p className="text-sm text-base-500">Nenhum "uso empresa" marcado no período.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-sm">
+              <thead>
+                <tr className="border-b border-base-800 text-left text-xs uppercase tracking-wide text-base-500">
+                  <th className="py-2 pr-3">Justificativa</th>
+                  <th className="py-2 pr-3 text-right">Ocorrências</th>
+                  <th className="py-2 pr-3 text-right">Km total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {justificativasUsoEmpresa.map((j) => (
+                  <tr key={j.observacao} className="border-b border-base-800/60 last:border-0">
+                    <td className={`py-2 pr-3 ${j.semJustificativa ? 'text-warn-300 italic' : 'text-base-100'}`}>{j.observacao}</td>
+                    <td className="py-2 pr-3 text-right">{j.ocorrencias}</td>
+                    <td className="py-2 pr-3 text-right">{formatKm(j.km)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSemanas } from '../hooks/useSemanas'
 import { useTodosLancamentos } from '../hooks/useLancamentos'
 import { atualizarDoc } from '../lib/store'
@@ -173,10 +173,33 @@ function SecaoSemana({
     return ordenarLancamentos(filtrados)
   }, [lancamentos, statusVisiveis, busca])
 
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  const chavesVisiveis = ordenados.map((l) => l.placa).join(',')
+  useEffect(() => setSelecionados(new Set()), [chavesVisiveis])
+
+  function alternarSelecionado(placa: string) {
+    setSelecionados((atual) => {
+      const novo = new Set(atual)
+      novo.has(placa) ? novo.delete(placa) : novo.add(placa)
+      return novo
+    })
+  }
+
+  function alternarSelecionarTodos() {
+    setSelecionados((atual) => (atual.size === ordenados.length ? new Set() : new Set(ordenados.map((l) => l.placa))))
+  }
+
   async function salvar(placa: string, patch: Partial<Lancamento>, atual: Lancamento) {
     const mesclado = { ...atual, ...patch }
     const valorDevidoCalc = calcularValorDevido(mesclado.kmRodado, mesclado.usoEmpresa, semana.kmLExigidoUsado, semana.precoDieselUsado)
     await atualizarDoc(`semanas/${semana.id}/lancamentos`, placa, { ...patch, valorDevidoCalc })
+  }
+
+  async function marcarSelecionadosComoNaoRespondeu() {
+    await Promise.all(
+      ordenados.filter((l) => selecionados.has(l.placa)).map((l) => salvar(l.placa, { naoRespondeu: true }, l)),
+    )
+    setSelecionados(new Set())
   }
 
   return (
@@ -194,7 +217,37 @@ function SecaoSemana({
           Nada pra mostrar com esses filtros nessa semana.
         </p>
       ) : (
-        ordenados.map((l) => <CardLancamento key={l.placa} lancamento={l} onSalvar={(patch) => salvar(l.placa, patch, l)} />)
+        <>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-base-500">
+            <label className="flex items-center gap-1.5">
+              <input type="checkbox" checked={selecionados.size > 0 && selecionados.size === ordenados.length} onChange={alternarSelecionarTodos} />
+              Selecionar todos ({ordenados.length})
+            </label>
+            {selecionados.size > 0 && (
+              <>
+                <span>{selecionados.size} selecionado(s)</span>
+                <button
+                  onClick={marcarSelecionadosComoNaoRespondeu}
+                  className="rounded-full border border-warn-600/40 bg-warn-bg px-3 py-1 font-medium text-warn-300 hover:bg-warn-bg/80"
+                >
+                  Marcar como não respondeu
+                </button>
+                <button onClick={() => setSelecionados(new Set())} className="text-brand-300 hover:underline">
+                  Limpar seleção
+                </button>
+              </>
+            )}
+          </div>
+          {ordenados.map((l) => (
+            <CardLancamento
+              key={l.placa}
+              lancamento={l}
+              onSalvar={(patch) => salvar(l.placa, patch, l)}
+              selecionado={selecionados.has(l.placa)}
+              onToggleSelecionado={() => alternarSelecionado(l.placa)}
+            />
+          ))}
+        </>
       )}
     </div>
   )
@@ -220,15 +273,51 @@ const TOM_BADGE: Record<'bom' | 'atencao' | 'neutro', string> = {
 
 /** Célula de coluna com separador vertical e conteúdo centralizado — o padrão visual repetido
  * em toda a linha colapsada, pra ficar fácil de ler em varredura horizontal. */
-function Celula({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`flex min-w-0 flex-col items-center justify-center gap-0.5 border-r border-base-800/50 px-3 text-center last:border-r-0 ${className}`}>{children}</div>
+function Celula({ children, className = '', onClick }: { children: React.ReactNode; className?: string; onClick?: (e: React.MouseEvent) => void }) {
+  return (
+    <div onClick={onClick} className={`flex min-w-0 flex-col items-center justify-center gap-0.5 border-r border-base-800/50 px-3 text-center last:border-r-0 ${className}`}>
+      {children}
+    </div>
+  )
 }
 
-function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSalvar: (patch: Partial<Lancamento>) => void }) {
+function CardLancamento({
+  lancamento,
+  onSalvar,
+  selecionado,
+  onToggleSelecionado,
+}: {
+  lancamento: Lancamento
+  onSalvar: (patch: Partial<Lancamento>) => void
+  selecionado: boolean
+  onToggleSelecionado: () => void
+}) {
   const [aberto, setAberto] = useState(false)
   const [valorPago, setValorPago] = useState(lancamento.valorPago?.toString() ?? '')
   const [dataPagamento, setDataPagamento] = useState(lancamento.dataPagamento ?? '')
   const [observacao, setObservacao] = useState(lancamento.observacao ?? '')
+  const [obsObrigatoria, setObsObrigatoria] = useState(false)
+  const obsRef = useRef<HTMLInputElement>(null)
+
+  function alternarUsoEmpresa(checked: boolean) {
+    if (checked && !observacao.trim()) {
+      setAberto(true)
+      setObsObrigatoria(true)
+      setTimeout(() => obsRef.current?.focus(), 0)
+      return
+    }
+    setObsObrigatoria(false)
+    onSalvar({ usoEmpresa: checked })
+  }
+
+  function salvarObservacao() {
+    if (obsObrigatoria && observacao.trim()) {
+      setObsObrigatoria(false)
+      onSalvar({ observacao, usoEmpresa: true })
+    } else {
+      onSalvar({ observacao })
+    }
+  }
 
   const dias = lancamento.dias ?? []
   const sab = dias.find((d) => diaSemanaCurto(d.data) === 'Sáb')
@@ -241,11 +330,22 @@ function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSa
 
   return (
     <div className={`overflow-hidden rounded-lg border bg-base-900/60 ${semDados ? 'border-base-800/40 opacity-60' : 'border-base-800/60'}`}>
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setAberto((a) => !a)}
-        className="grid w-full items-stretch gap-0 py-1.5 text-left hover:bg-base-850/60"
-        style={{ gridTemplateColumns: 'minmax(220px,1.4fr) 100px 100px minmax(200px,1fr) 100px 120px 24px' }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setAberto((a) => !a)
+          }
+        }}
+        className="grid w-full cursor-pointer items-stretch gap-0 py-1.5 text-left hover:bg-base-850/60"
+        style={{ gridTemplateColumns: '28px minmax(220px,1.4fr) 100px 100px minmax(200px,1fr) 100px 120px 24px' }}
       >
+        <Celula className="border-r-0" onClick={(e) => e.stopPropagation()}>
+          <input type="checkbox" checked={selecionado} onChange={onToggleSelecionado} title="Selecionar pra ação em massa" />
+        </Celula>
         <Celula className="flex-row items-center justify-start gap-2 border-r-0 text-left">
           <PlacaMercosul placa={lancamento.placa} className="h-8 w-16 shrink-0" />
           <div className="min-w-0">
@@ -280,7 +380,7 @@ function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSa
           <span className={`rounded-full border px-2 py-1 text-[11px] font-medium ${TOM_BADGE[status.tom]}`}>{status.label}</span>
         </Celula>
         <Celula className="border-r-0 text-base-500">{aberto ? '▲' : '▼'}</Celula>
-      </button>
+      </div>
 
       {aberto && (
         <div className="flex flex-col gap-4 border-t border-base-800/60 p-4">
@@ -307,8 +407,8 @@ function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSa
               <input
                 type="checkbox"
                 checked={lancamento.usoEmpresa}
-                onChange={(e) => onSalvar({ usoEmpresa: e.target.checked })}
-                title="Marcar se o gerente estava a trabalho — não gera reembolso"
+                onChange={(e) => alternarUsoEmpresa(e.target.checked)}
+                title="Marcar se o gerente estava a trabalho — não gera reembolso. Exige observação com a justificativa."
               />
               Uso empresa
             </label>
@@ -343,14 +443,17 @@ function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSa
               />
             </label>
             <label className="flex flex-col gap-1 text-xs text-base-400">
-              Observação
+              Observação{obsObrigatoria && <span className="text-crit-400"> · obrigatória pra uso empresa</span>}
               <input
+                ref={obsRef}
                 type="text"
                 value={observacao}
                 onChange={(e) => setObservacao(e.target.value)}
-                onBlur={() => onSalvar({ observacao })}
-                placeholder="opcional"
-                className="rounded-md border border-base-700 bg-base-900 px-2 py-1 text-sm text-base-100 outline-none focus:border-brand-400"
+                onBlur={salvarObservacao}
+                placeholder={obsObrigatoria ? 'Justifique o uso empresa…' : 'opcional'}
+                className={`rounded-md border bg-base-900 px-2 py-1 text-sm text-base-100 outline-none focus:border-brand-400 ${
+                  obsObrigatoria ? 'border-crit-500' : 'border-base-700'
+                }`}
               />
             </label>
           </div>

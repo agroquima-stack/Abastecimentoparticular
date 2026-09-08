@@ -107,3 +107,29 @@ export function agregarPorSemana(semanas: ComId<Semana>[], porSemana: Record<str
       }
     })
 }
+
+export interface JustificativaUsoEmpresa {
+  observacao: string
+  ocorrencias: number
+  km: number
+  semJustificativa: boolean
+}
+
+/** Agrupa os lançamentos marcados "uso empresa" pela observação (justificativa) informada —
+ * ajuda a auditar os motivos alegados. Observação vazia (registro antigo, de antes da
+ * justificativa virar obrigatória) cai no grupo "Sem justificativa", destacado à parte. */
+export function agregarJustificativasUsoEmpresa(porSemana: Record<string, ComId<Lancamento>[]>): JustificativaUsoEmpresa[] {
+  const mapa = new Map<string, JustificativaUsoEmpresa>()
+  for (const lancamentos of Object.values(porSemana)) {
+    for (const l of lancamentos) {
+      if (!l.usoEmpresa) continue
+      const texto = l.observacao?.trim() || 'Sem justificativa'
+      const chave = texto.toLowerCase()
+      const atual = mapa.get(chave) ?? { observacao: texto, ocorrencias: 0, km: 0, semJustificativa: !l.observacao?.trim() }
+      atual.ocorrencias += 1
+      atual.km += l.kmRodado || 0
+      mapa.set(chave, atual)
+    }
+  }
+  return [...mapa.values()].sort((a, b) => b.ocorrencias - a.ocorrencias)
+}
