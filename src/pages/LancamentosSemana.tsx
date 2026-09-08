@@ -19,10 +19,11 @@ function ordenarLancamentos(lancamentos: ComId<Lancamento>[]): ComId<Lancamento>
   })
 }
 
-type StatusKey = 'debito' | 'pago' | 'uso_empresa' | 'nao_respondeu' | 'sem_valor'
+type StatusKey = 'debito' | 'parcial' | 'pago' | 'uso_empresa' | 'nao_respondeu' | 'sem_valor'
 
 const STATUS_OPCOES: { key: StatusKey; label: string }[] = [
   { key: 'debito', label: 'Débito' },
+  { key: 'parcial', label: 'Parcial' },
   { key: 'pago', label: 'Pago' },
   { key: 'uso_empresa', label: 'Uso empresa' },
   { key: 'nao_respondeu', label: 'Não respondeu' },
@@ -35,7 +36,9 @@ const TODOS_STATUS = STATUS_OPCOES.map((o) => o.key)
 function carregarFiltroStatus(): StatusKey[] {
   try {
     const salvo = JSON.parse(localStorage.getItem(CHAVE_FILTRO_STATUS) || 'null')
-    return Array.isArray(salvo) && salvo.length > 0 ? salvo : TODOS_STATUS
+    if (!Array.isArray(salvo) || salvo.length === 0) return TODOS_STATUS
+    // "parcial" é status novo — some filtro salvo antes dele existir não pode escondê-lo sem querer.
+    return salvo.includes('parcial') ? salvo : [...salvo, 'parcial']
   } catch {
     return TODOS_STATUS
   }
@@ -174,6 +177,9 @@ function statusDoLancamento(l: Lancamento): { key: StatusKey; label: string; tom
   if (l.valorDevidoCalc === 0) return { key: 'sem_valor', label: '—', tom: 'neutro' }
   // Tolerância de 10%: não precisa bater 100% do valor apurado pra fechar como "Pago".
   if (dentroDaTolerancia(l.valorPago ?? 0, l.valorDevidoCalc)) return { key: 'pago', label: 'Pago', tom: 'bom' }
+  // Já lançou algum valor, só não bateu a tolerância — respondeu, então não é mais "Débito" (que
+  // fica reservado pra quem ainda não lançou nada).
+  if ((l.valorPago ?? 0) > 0) return { key: 'parcial', label: 'Parcial', tom: 'atencao' }
   return { key: 'debito', label: 'Débito', tom: 'atencao' }
 }
 
