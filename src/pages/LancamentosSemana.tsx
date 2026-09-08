@@ -19,6 +19,28 @@ function ordenarLancamentos(lancamentos: ComId<Lancamento>[]): ComId<Lancamento>
   })
 }
 
+type StatusKey = 'debito' | 'pago' | 'uso_empresa' | 'nao_respondeu' | 'sem_valor'
+
+const STATUS_OPCOES: { key: StatusKey; label: string }[] = [
+  { key: 'debito', label: 'Débito' },
+  { key: 'pago', label: 'Pago' },
+  { key: 'uso_empresa', label: 'Uso empresa' },
+  { key: 'nao_respondeu', label: 'Não respondeu' },
+  { key: 'sem_valor', label: 'Sem valor' },
+]
+
+const CHAVE_FILTRO_STATUS = 'abastecimento-gerentes-filtro-status'
+const TODOS_STATUS = STATUS_OPCOES.map((o) => o.key)
+
+function carregarFiltroStatus(): StatusKey[] {
+  try {
+    const salvo = JSON.parse(localStorage.getItem(CHAVE_FILTRO_STATUS) || 'null')
+    return Array.isArray(salvo) && salvo.length > 0 ? salvo : TODOS_STATUS
+  } catch {
+    return TODOS_STATUS
+  }
+}
+
 export function LancamentosSemana() {
   const { semanas: todasSemanas } = useSemanas()
   const semanaIds = useMemo(() => todasSemanas.map((s) => s.id), [todasSemanas])
@@ -35,6 +57,15 @@ export function LancamentosSemana() {
     [todasSemanas, periodoSelecionado],
   )
 
+  const [statusVisiveis, setStatusVisiveis] = useState<StatusKey[]>(carregarFiltroStatus)
+  useEffect(() => {
+    localStorage.setItem(CHAVE_FILTRO_STATUS, JSON.stringify(statusVisiveis))
+  }, [statusVisiveis])
+
+  function alternarStatus(key: StatusKey) {
+    setStatusVisiveis((atual) => (atual.includes(key) ? atual.filter((k) => k !== key) : [...atual, key]))
+  }
+
   if (todasSemanas.length === 0) {
     return <p className="text-sm text-base-400">Nenhuma semana importada ainda. Vá em "Importar semana" primeiro.</p>
   }
@@ -49,15 +80,62 @@ export function LancamentosSemana() {
         <FiltroPeriodo semanas={todasSemanas} selecionadas={periodoSelecionado} onChange={setPeriodoSelecionado} />
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-base-500">Status:</span>
+        {STATUS_OPCOES.map((o) => (
+          <button
+            key={o.key}
+            onClick={() => alternarStatus(o.key)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+              statusVisiveis.includes(o.key)
+                ? 'border-brand-500/50 bg-brand-700/20 text-brand-200'
+                : 'border-base-700 bg-base-900 text-base-500 hover:text-base-300'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+        <button
+          onClick={() => setStatusVisiveis((atual) => atual.filter((k) => k !== 'pago'))}
+          className="ml-1 rounded-full border border-base-700 px-3 py-1 text-xs text-base-400 hover:bg-base-800 hover:text-base-200"
+        >
+          Ocultar pagos
+        </button>
+        {statusVisiveis.length < TODOS_STATUS.length && (
+          <button onClick={() => setStatusVisiveis(TODOS_STATUS)} className="text-xs text-brand-300 hover:underline">
+            Mostrar todos
+          </button>
+        )}
+      </div>
+
       {semanasFiltradas.map((semana) => (
-        <SecaoSemana key={semana.id} semana={semana} lancamentos={porSemana[semana.id] ?? []} mostrarTitulo={semanasFiltradas.length > 1} />
+        <SecaoSemana
+          key={semana.id}
+          semana={semana}
+          lancamentos={porSemana[semana.id] ?? []}
+          mostrarTitulo={semanasFiltradas.length > 1}
+          statusVisiveis={statusVisiveis}
+        />
       ))}
     </div>
   )
 }
 
-function SecaoSemana({ semana, lancamentos, mostrarTitulo }: { semana: ComId<Semana>; lancamentos: ComId<Lancamento>[]; mostrarTitulo: boolean }) {
-  const ordenados = useMemo(() => ordenarLancamentos(lancamentos), [lancamentos])
+function SecaoSemana({
+  semana,
+  lancamentos,
+  mostrarTitulo,
+  statusVisiveis,
+}: {
+  semana: ComId<Semana>
+  lancamentos: ComId<Lancamento>[]
+  mostrarTitulo: boolean
+  statusVisiveis: StatusKey[]
+}) {
+  const ordenados = useMemo(
+    () => ordenarLancamentos(lancamentos.filter((l) => statusVisiveis.includes(statusDoLancamento(l).key))),
+    [lancamentos, statusVisiveis],
+  )
 
   async function salvar(placa: string, patch: Partial<Lancamento>, atual: Lancamento) {
     const mesclado = { ...atual, ...patch }
@@ -75,19 +153,23 @@ function SecaoSemana({ semana, lancamentos, mostrarTitulo }: { semana: ComId<Sem
           </span>
         </h2>
       )}
-      {ordenados.map((l) => (
-        <CardLancamento key={l.placa} lancamento={l} onSalvar={(patch) => salvar(l.placa, patch, l)} />
-      ))}
+      {ordenados.length === 0 ? (
+        <p className="rounded-lg border border-base-800/60 bg-base-900/40 px-4 py-3 text-sm text-base-500">
+          Nada pra mostrar com esse filtro de status nessa semana.
+        </p>
+      ) : (
+        ordenados.map((l) => <CardLancamento key={l.placa} lancamento={l} onSalvar={(patch) => salvar(l.placa, patch, l)} />)
+      )}
     </div>
   )
 }
 
-function statusDoLancamento(l: Lancamento): { label: string; tom: 'bom' | 'atencao' | 'neutro' } {
-  if (l.usoEmpresa) return { label: 'Uso empresa', tom: 'neutro' }
-  if (l.naoRespondeu) return { label: 'Não respondeu', tom: 'atencao' }
-  if (l.valorDevidoCalc === 0) return { label: '—', tom: 'neutro' }
-  if ((l.valorPago ?? 0) >= l.valorDevidoCalc) return { label: 'Pago', tom: 'bom' }
-  return { label: 'Débito', tom: 'atencao' }
+function statusDoLancamento(l: Lancamento): { key: StatusKey; label: string; tom: 'bom' | 'atencao' | 'neutro' } {
+  if (l.usoEmpresa) return { key: 'uso_empresa', label: 'Uso empresa', tom: 'neutro' }
+  if (l.naoRespondeu) return { key: 'nao_respondeu', label: 'Não respondeu', tom: 'atencao' }
+  if (l.valorDevidoCalc === 0) return { key: 'sem_valor', label: '—', tom: 'neutro' }
+  if ((l.valorPago ?? 0) >= l.valorDevidoCalc) return { key: 'pago', label: 'Pago', tom: 'bom' }
+  return { key: 'debito', label: 'Débito', tom: 'atencao' }
 }
 
 const TOM_BADGE: Record<'bom' | 'atencao' | 'neutro', string> = {
