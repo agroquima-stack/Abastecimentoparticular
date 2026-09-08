@@ -21,10 +21,12 @@ export interface LinhaContaCorrente {
   placas: string[] // todas as placas já usadas (troca de veículo não perde histórico)
   filial: string
   totalKm: number
+  kmParticular: number // totalKm excluindo semanas marcadas "uso empresa"
   totalDevido: number
   totalPago: number
   saldo: number // devido - pago: positivo = empresa ainda deve ao gerente
   semanasComUso: number
+  semanasNaoRespondeu: number
 }
 
 /**
@@ -46,24 +48,35 @@ export function agregarPorGerente(semanas: ComId<Semana>[], porSemana: Record<st
         placasSet: new Set<string>(),
         filial: l.filial,
         totalKm: 0,
+        kmParticular: 0,
         totalDevido: 0,
         totalPago: 0,
         saldo: 0,
         semanasComUso: 0,
+        semanasNaoRespondeu: 0,
       }
       linha.placa = l.placa
       linha.filial = l.filial
       linha.placasSet.add(l.placa)
       linha.totalKm += l.kmRodado || 0
+      if (!l.usoEmpresa) linha.kmParticular += l.kmRodado || 0
       linha.totalDevido += l.valorDevidoCalc || 0
       linha.totalPago += l.valorPago || 0
       if (!l.usoEmpresa && l.kmRodado > 0) linha.semanasComUso += 1
+      if (l.naoRespondeu) linha.semanasNaoRespondeu += 1
       mapa.set(l.gerente, linha)
     }
   }
   const linhas = [...mapa.values()].map(({ placasSet, ...l }) => ({ ...l, placas: [...placasSet].sort() }))
   for (const l of linhas) l.saldo = Math.round((l.totalDevido - l.totalPago) * 100) / 100
   return linhas.sort((a, b) => b.saldo - a.saldo)
+}
+
+/** true quando existe algum km/registro real pra esse lançamento (sábado ou domingo) — usado pra
+ * jogar quem não tem nenhum dado pro fim da lista, em vez de misturar com quem respondeu. */
+export function temDadosNoFimDeSemana(l: Lancamento): boolean {
+  if (l.kmRodado > 0) return true
+  return (l.dias ?? []).some((d) => d.kmPercorrido > 0)
 }
 
 export interface PontoSemana {

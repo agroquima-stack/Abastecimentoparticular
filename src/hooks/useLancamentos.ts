@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { calcularValorDevido } from '../lib/calculo'
-import { atualizarDoc, observarColecao } from '../lib/store'
+import { observarColecao } from '../lib/store'
 import type { ComId, Lancamento } from '../types/models'
 
 export function useLancamentos(semanaId: string | null) {
@@ -16,20 +15,7 @@ export function useLancamentos(semanaId: string | null) {
     )
   }, [semanaId])
 
-  async function salvarLancamento(
-    semanaIdAlvo: string,
-    placa: string,
-    patch: Partial<Lancamento>,
-    kmLExigido: number,
-    precoDiesel: number,
-    atual: Lancamento,
-  ) {
-    const mesclado = { ...atual, ...patch }
-    const valorDevidoCalc = calcularValorDevido(mesclado.kmRodado, mesclado.usoEmpresa, kmLExigido, precoDiesel)
-    await atualizarDoc(`semanas/${semanaIdAlvo}/lancamentos`, placa, { ...patch, valorDevidoCalc })
-  }
-
-  return { lancamentos: lancamentos ?? [], carregando: lancamentos === null, salvarLancamento }
+  return { lancamentos: lancamentos ?? [], carregando: lancamentos === null }
 }
 
 /** Todas as semanas x lançamentos, usado no dashboard e na conta corrente (poucas linhas, tudo em memória). */

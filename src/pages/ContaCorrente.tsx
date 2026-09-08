@@ -3,12 +3,21 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianG
 import { useSemanas } from '../hooks/useSemanas'
 import { useTodosLancamentos } from '../hooks/useLancamentos'
 import { agregarPorGerente } from '../lib/agregacoes'
+import { FiltroPeriodo, filtrarSemanas } from '../components/FiltroPeriodo'
 import { formatDataBR, formatMoeda, formatKm } from '../lib/format'
 
 export function ContaCorrente() {
-  const { semanas } = useSemanas()
-  const semanaIds = useMemo(() => semanas.map((s) => s.id), [semanas])
-  const porSemana = useTodosLancamentos(semanaIds)
+  const { semanas: todasSemanas } = useSemanas()
+  const semanaIds = useMemo(() => todasSemanas.map((s) => s.id), [todasSemanas])
+  const porSemanaTodas = useTodosLancamentos(semanaIds)
+
+  const [periodoSelecionado, setPeriodoSelecionado] = useState<string[]>([])
+  const semanas = useMemo(() => filtrarSemanas(todasSemanas, periodoSelecionado), [todasSemanas, periodoSelecionado])
+  const porSemana = useMemo(
+    () => Object.fromEntries(semanas.map((s) => [s.id, porSemanaTodas[s.id] ?? []])),
+    [semanas, porSemanaTodas],
+  )
+
   const contaCorrente = useMemo(() => agregarPorGerente(semanas, porSemana), [semanas, porSemana])
 
   const [gerenteSelecionado, setGerenteSelecionado] = useState<string | null>(null)
@@ -42,7 +51,10 @@ export function ContaCorrente() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-base-50">Conta corrente por gerente</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold text-base-50">Conta corrente por gerente</h1>
+        <FiltroPeriodo semanas={todasSemanas} selecionadas={periodoSelecionado} onChange={setPeriodoSelecionado} />
+      </div>
 
       {contaCorrente.length === 0 ? (
         <p className="text-sm text-base-400">Nenhum lançamento registrado ainda.</p>

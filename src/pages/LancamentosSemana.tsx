@@ -1,25 +1,41 @@
-import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
 import { useSemanas } from '../hooks/useSemanas'
-import { useLancamentos } from '../hooks/useLancamentos'
-import { mesclarLocaisDoFimDeSemana } from '../lib/agregacoes'
+import { useTodosLancamentos } from '../hooks/useLancamentos'
+import { atualizarDoc } from '../lib/store'
+import { mesclarLocaisDoFimDeSemana, temDadosNoFimDeSemana } from '../lib/agregacoes'
+import { calcularValorDevido } from '../lib/calculo'
 import { formatDataBR, formatKm, formatMinutos, formatMoeda, diaSemanaCurto } from '../lib/format'
 import { PlacaMercosul } from '../components/PlacaMercosul'
-import type { DiaResumo, Lancamento } from '../types/models'
+import { FiltroPeriodo, filtrarSemanas } from '../components/FiltroPeriodo'
+import type { ComId, DiaResumo, Lancamento, Semana } from '../types/models'
+
+/** Não respondeu / não tem dado primeiro vai pro fim; entre os que têm dado, mantém alfabético. */
+function ordenarLancamentos(lancamentos: ComId<Lancamento>[]): ComId<Lancamento>[] {
+  return lancamentos.slice().sort((a, b) => {
+    const da = temDadosNoFimDeSemana(a)
+    const db = temDadosNoFimDeSemana(b)
+    if (da !== db) return da ? -1 : 1
+    return a.gerente.localeCompare(b.gerente)
+  })
+}
 
 export function LancamentosSemana() {
-  const { semanas } = useSemanas()
-  const [params, setParams] = useSearchParams()
-  const semanaId = params.get('semana') ?? semanas[0]?.id ?? null
+  const { semanas: todasSemanas } = useSemanas()
+  const semanaIds = useMemo(() => todasSemanas.map((s) => s.id), [todasSemanas])
+  const porSemana = useTodosLancamentos(semanaIds)
 
+  const [periodoSelecionado, setPeriodoSelecionado] = useState<string[]>([])
   useEffect(() => {
-    if (!params.get('semana') && semanas[0]) setParams({ semana: semanas[0].id }, { replace: true })
-  }, [semanas, params, setParams])
+    if (periodoSelecionado.length === 0 && todasSemanas[0]) setPeriodoSelecionado([todasSemanas[0].id])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todasSemanas[0]?.id])
 
-  const semana = semanas.find((s) => s.id === semanaId)
-  const { lancamentos, salvarLancamento } = useLancamentos(semanaId)
+  const semanasFiltradas = useMemo(
+    () => filtrarSemanas(todasSemanas, periodoSelecionado).slice().sort((a, b) => b.id.localeCompare(a.id)),
+    [todasSemanas, periodoSelecionado],
+  )
 
-  if (semanas.length === 0) {
+  if (todasSemanas.length === 0) {
     return <p className="text-sm text-base-400">Nenhuma semana importada ainda. Vá em "Importar semana" primeiro.</p>
   }
 
@@ -27,42 +43,48 @@ export function LancamentosSemana() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-base-50">Lançamentos da semana</h1>
-          {semana && (
-            <p className="text-sm text-base-400">
-              {formatDataBR(semana.dataInicio)} a {formatDataBR(semana.dataFim)} · diesel {formatMoeda(semana.precoDieselUsado)}/L ·{' '}
-              {semana.kmLExigidoUsado} km/L exigido
-            </p>
-          )}
+          <h1 className="text-xl font-semibold text-base-50">Lançamentos</h1>
+          <p className="text-sm text-base-400">{semanasFiltradas.length} semana(s) selecionada(s).</p>
         </div>
-        <select
-          value={semanaId ?? ''}
-          onChange={(e) => setParams({ semana: e.target.value })}
-          className="rounded-lg border border-base-700 bg-base-900 px-3 py-2 text-sm text-base-100 outline-none focus:border-brand-400"
-        >
-          {semanas.map((s) => (
-            <option key={s.id} value={s.id}>
-              {formatDataBR(s.dataInicio)} a {formatDataBR(s.dataFim)}
-            </option>
-          ))}
-        </select>
+        <FiltroPeriodo semanas={todasSemanas} selecionadas={periodoSelecionado} onChange={setPeriodoSelecionado} />
       </div>
 
-      <div className="flex flex-col gap-2">
-        {lancamentos.map((l) => (
-          <CardLancamento
-            key={l.placa}
-            lancamento={l}
-            onSalvar={(patch) => salvarLancamento(semanaId!, l.placa, patch, semana!.kmLExigidoUsado, semana!.precoDieselUsado, l)}
-          />
-        ))}
-      </div>
+      {semanasFiltradas.map((semana) => (
+        <SecaoSemana key={semana.id} semana={semana} lancamentos={porSemana[semana.id] ?? []} mostrarTitulo={semanasFiltradas.length > 1} />
+      ))}
+    </div>
+  )
+}
+
+function SecaoSemana({ semana, lancamentos, mostrarTitulo }: { semana: ComId<Semana>; lancamentos: ComId<Lancamento>[]; mostrarTitulo: boolean }) {
+  const ordenados = useMemo(() => ordenarLancamentos(lancamentos), [lancamentos])
+
+  async function salvar(placa: string, patch: Partial<Lancamento>, atual: Lancamento) {
+    const mesclado = { ...atual, ...patch }
+    const valorDevidoCalc = calcularValorDevido(mesclado.kmRodado, mesclado.usoEmpresa, semana.kmLExigidoUsado, semana.precoDieselUsado)
+    await atualizarDoc(`semanas/${semana.id}/lancamentos`, placa, { ...patch, valorDevidoCalc })
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {mostrarTitulo && (
+        <h2 className="text-sm font-semibold text-base-300">
+          {formatDataBR(semana.dataInicio)} a {formatDataBR(semana.dataFim)}{' '}
+          <span className="font-normal text-base-500">
+            · diesel {formatMoeda(semana.precoDieselUsado)}/L · {semana.kmLExigidoUsado} km/L exigido
+          </span>
+        </h2>
+      )}
+      {ordenados.map((l) => (
+        <CardLancamento key={l.placa} lancamento={l} onSalvar={(patch) => salvar(l.placa, patch, l)} />
+      ))}
     </div>
   )
 }
 
 function statusDoLancamento(l: Lancamento): { label: string; tom: 'bom' | 'atencao' | 'neutro' } {
   if (l.usoEmpresa) return { label: 'Uso empresa', tom: 'neutro' }
+  if (l.naoRespondeu) return { label: 'Não respondeu', tom: 'atencao' }
   if (l.valorDevidoCalc === 0) return { label: '—', tom: 'neutro' }
   if ((l.valorPago ?? 0) >= l.valorDevidoCalc) return { label: 'Pago', tom: 'bom' }
   return { label: 'Débito', tom: 'atencao' }
@@ -72,6 +94,12 @@ const TOM_BADGE: Record<'bom' | 'atencao' | 'neutro', string> = {
   bom: 'border-good-600/40 bg-good-bg text-good-400',
   atencao: 'border-warn-600/40 bg-warn-bg text-warn-300',
   neutro: 'border-base-700 bg-base-850 text-base-400',
+}
+
+/** Célula de coluna com separador vertical e conteúdo centralizado — o padrão visual repetido
+ * em toda a linha colapsada, pra ficar fácil de ler em varredura horizontal. */
+function Celula({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`flex min-w-0 flex-col items-center justify-center gap-0.5 border-r border-base-800/50 px-3 text-center last:border-r-0 ${className}`}>{children}</div>
 }
 
 function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSalvar: (patch: Partial<Lancamento>) => void }) {
@@ -88,38 +116,53 @@ function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSa
   const top = cidades[0]
   const outras = Math.max(cidades.length - 1, 0)
   const status = statusDoLancamento(lancamento)
+  const semDados = !temDadosNoFimDeSemana(lancamento)
 
   return (
-    <div className={`overflow-hidden rounded-xl border bg-base-900/60 ${lancamento.usoEmpresa ? 'border-base-800/40 opacity-70' : 'border-base-800/60'}`}>
-      <button onClick={() => setAberto((a) => !a)} className="flex w-full flex-wrap items-center gap-4 p-3 text-left hover:bg-base-850/60">
-        <PlacaMercosul placa={lancamento.placa} className="h-10 w-20 shrink-0" />
-        <div className="min-w-[170px]">
-          <div className="text-sm font-medium text-base-100">{lancamento.gerente}</div>
-          <div className="text-xs text-base-500">{lancamento.filial}</div>
-        </div>
-        <ColunaDia rotulo="Sábado" dia={sab} />
-        <ColunaDia rotulo="Domingo" dia={dom} />
-        <div className="w-20 text-xs">
-          <div className="text-[10px] uppercase tracking-wide text-base-500">Vel. máx.</div>
-          <div className="text-base-100">{velMax ? `${velMax} km/h` : '—'}</div>
-        </div>
-        <div className="min-w-[190px] flex-1 text-xs">
-          <div className="text-[10px] uppercase tracking-wide text-base-500">Cidade (mais tempo)</div>
+    <div className={`overflow-hidden rounded-lg border bg-base-900/60 ${semDados ? 'border-base-800/40 opacity-60' : 'border-base-800/60'}`}>
+      <button
+        onClick={() => setAberto((a) => !a)}
+        className="grid w-full items-stretch gap-0 py-1.5 text-left hover:bg-base-850/60"
+        style={{ gridTemplateColumns: 'minmax(220px,1.4fr) 100px 100px 80px minmax(180px,1fr) 100px 120px 24px' }}
+      >
+        <Celula className="flex-row items-center justify-start gap-2 border-r-0 text-left">
+          <PlacaMercosul placa={lancamento.placa} className="h-8 w-16 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-sm leading-tight font-medium text-base-100">{lancamento.gerente}</div>
+            <div className="text-xs text-base-500">{lancamento.filial}</div>
+          </div>
+        </Celula>
+        <Celula>
+          <span className="text-[10px] uppercase tracking-wide text-base-500">Sábado</span>
+          <span className="font-medium text-base-100">{sab ? formatKm(sab.kmPercorrido) : '—'}</span>
+        </Celula>
+        <Celula>
+          <span className="text-[10px] uppercase tracking-wide text-base-500">Domingo</span>
+          <span className="font-medium text-base-100">{dom ? formatKm(dom.kmPercorrido) : '—'}</span>
+        </Celula>
+        <Celula>
+          <span className="text-[10px] uppercase tracking-wide text-base-500">Vel. máx.</span>
+          <span className="text-base-100">{velMax ? `${velMax}` : '—'}</span>
+        </Celula>
+        <Celula className="items-center">
+          <span className="text-[10px] uppercase tracking-wide text-base-500">Cidade (mais tempo)</span>
           {top ? (
-            <div className="text-base-100">
+            <span className="truncate text-base-100">
               📍 {top.nome} <span className="text-base-400">· {formatMinutos(top.minutos)}</span>
-              {outras > 0 && <span className="text-base-500"> +{outras} outras</span>}
-            </div>
+              {outras > 0 && <span className="text-base-500"> +{outras}</span>}
+            </span>
           ) : (
             <span className="text-base-600">—</span>
           )}
-        </div>
-        <div className="text-right">
-          <div className="text-[10px] uppercase tracking-wide text-base-500">Devido</div>
-          <div className="text-sm font-semibold text-base-100">{formatMoeda(lancamento.valorDevidoCalc)}</div>
-        </div>
-        <span className={`rounded-full border px-2 py-1 text-[11px] font-medium ${TOM_BADGE[status.tom]}`}>{status.label}</span>
-        <span className="ml-auto shrink-0 text-base-500">{aberto ? '▲' : '▼'}</span>
+        </Celula>
+        <Celula>
+          <span className="text-[10px] uppercase tracking-wide text-base-500">Devido</span>
+          <span className="font-semibold text-base-100">{formatMoeda(lancamento.valorDevidoCalc)}</span>
+        </Celula>
+        <Celula className="border-r-0">
+          <span className={`rounded-full border px-2 py-1 text-[11px] font-medium ${TOM_BADGE[status.tom]}`}>{status.label}</span>
+        </Celula>
+        <Celula className="border-r-0 text-base-500">{aberto ? '▲' : '▼'}</Celula>
       </button>
 
       {aberto && (
@@ -142,7 +185,7 @@ function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSa
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 border-t border-base-800/60 pt-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 border-t border-base-800/60 pt-4 sm:grid-cols-5">
             <label className="flex items-center gap-2 text-sm text-base-300">
               <input
                 type="checkbox"
@@ -151,6 +194,15 @@ function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSa
                 title="Marcar se o gerente estava a trabalho — não gera reembolso"
               />
               Uso empresa
+            </label>
+            <label className="flex items-center gap-2 text-sm text-base-300">
+              <input
+                type="checkbox"
+                checked={lancamento.naoRespondeu}
+                onChange={(e) => onSalvar({ naoRespondeu: e.target.checked })}
+                title="Marcar se o gerente ainda não respondeu/enviou informação"
+              />
+              Não respondeu
             </label>
             <label className="flex flex-col gap-1 text-xs text-base-400">
               Valor reembolsado (R$)
@@ -185,20 +237,6 @@ function CardLancamento({ lancamento, onSalvar }: { lancamento: Lancamento; onSa
               />
             </label>
           </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ColunaDia({ rotulo, dia }: { rotulo: string; dia?: DiaResumo }) {
-  return (
-    <div className="min-w-[120px] text-xs">
-      <div className="text-[10px] uppercase tracking-wide text-base-500">{rotulo}</div>
-      <div className="font-medium text-base-100">{dia ? formatKm(dia.kmPercorrido) : '—'}</div>
-      {dia?.horaSaida && (
-        <div className="text-base-500">
-          {dia.horaSaida} → {dia.horaChegada || '—'}
         </div>
       )}
     </div>

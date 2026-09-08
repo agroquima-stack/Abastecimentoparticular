@@ -72,6 +72,7 @@ export function useSemanas() {
         filial: v.filial,
         kmRodado,
         usoEmpresa,
+        naoRespondeu: existente?.naoRespondeu ?? false,
         valorPago: existente?.valorPago ?? null,
         dataPagamento: existente?.dataPagamento ?? null,
         observacao: existente?.observacao ?? '',

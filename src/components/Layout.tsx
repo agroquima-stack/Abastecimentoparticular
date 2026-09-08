@@ -6,11 +6,11 @@ import { useAuth } from '../hooks/useAuth'
 
 const ITENS_NAV = [
   { to: '/', label: 'Dashboard', icone: '📊' },
-  { to: '/importar', label: 'Importar semana', icone: '⬆️' },
   { to: '/lancamentos', label: 'Lançamentos', icone: '📝' },
   { to: '/conta-corrente', label: 'Conta corrente', icone: '💰' },
   { to: '/grade-placas', label: 'Grade de placas', icone: '🚙' },
   { to: '/cadastro', label: 'Cadastro', icone: '👥' },
+  { to: '/importar', label: 'Importar semana', icone: '⬆️' },
   { to: '/parametros', label: 'Parâmetros', icone: '⚙️' },
 ]
 

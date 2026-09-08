@@ -59,6 +59,7 @@ export interface Lancamento {
   filial: string
   kmRodado: number
   usoEmpresa: boolean
+  naoRespondeu: boolean
   valorPago: number | null
   dataPagamento: string | null
   observacao: string
