@@ -3,7 +3,7 @@ import { useSemanas } from '../hooks/useSemanas'
 import { useTodosLancamentos } from '../hooks/useLancamentos'
 import { atualizarDoc } from '../lib/store'
 import { mesclarLocaisDoFimDeSemana, temDadosNoFimDeSemana } from '../lib/agregacoes'
-import { calcularValorDevido, dentroDaTolerancia } from '../lib/calculo'
+import { calcularValorDevido, dentroDaTolerancia, diasUsoEmpresaEfetivos, kmEfetivo } from '../lib/calculo'
 import { formatDataBR, formatKm, formatMinutos, formatMoeda, diaSemanaCurto } from '../lib/format'
 import { PlacaMercosul } from '../components/PlacaMercosul'
 import { FiltroPeriodo, filtrarSemanas } from '../components/FiltroPeriodo'
@@ -191,7 +191,7 @@ function SecaoSemana({
 
   async function salvar(placa: string, patch: Partial<Lancamento>, atual: Lancamento) {
     const mesclado = { ...atual, ...patch }
-    const valorDevidoCalc = calcularValorDevido(mesclado.kmRodado, mesclado.usoEmpresa, semana.kmLExigidoUsado, semana.precoDieselUsado)
+    const valorDevidoCalc = calcularValorDevido(kmEfetivo(mesclado), semana.kmLExigidoUsado, semana.precoDieselUsado)
     await atualizarDoc(`semanas/${semana.id}/lancamentos`, placa, { ...patch, valorDevidoCalc })
   }
 
@@ -297,12 +297,40 @@ function CardLancamento({
   const [dataPagamento, setDataPagamento] = useState(lancamento.dataPagamento ?? '')
   const [observacao, setObservacao] = useState(lancamento.observacao ?? '')
   const [obsObrigatoria, setObsObrigatoria] = useState(false)
+  const [diasPendentes, setDiasPendentes] = useState<string[] | null>(null)
+  const [pendenteLegado, setPendenteLegado] = useState(false)
   const obsRef = useRef<HTMLInputElement>(null)
 
-  function alternarUsoEmpresa(checked: boolean) {
+  function calcularUsoEmpresaLegado(diasUsoEmpresaNovo: string[]) {
+    const todasAsDatas = (lancamento.dias ?? []).map((d) => d.data)
+    return todasAsDatas.length > 0 && todasAsDatas.every((d) => diasUsoEmpresaNovo.includes(d))
+  }
+
+  /** Marcar um dia como uso empresa exige observação — se ainda não tem, só aplica de fato
+   * quando a observação for preenchida (ver `salvarObservacao`). Desmarcar não exige nada. */
+  function alternarDiaUsoEmpresa(data: string, checked: boolean) {
+    const atual = new Set(diasUsoEmpresaEfetivos(lancamento))
+    checked ? atual.add(data) : atual.delete(data)
+    const novoArray = [...atual]
+
     if (checked && !observacao.trim()) {
       setAberto(true)
       setObsObrigatoria(true)
+      setDiasPendentes(novoArray)
+      setTimeout(() => obsRef.current?.focus(), 0)
+      return
+    }
+    setObsObrigatoria(false)
+    onSalvar({ diasUsoEmpresa: novoArray, usoEmpresa: calcularUsoEmpresaLegado(novoArray) })
+  }
+
+  /** Fallback pra semanas sem o detalhe dia a dia do Rota (não dá pra escolher qual dia zerar) —
+   * mantém o comportamento antigo: a semana inteira é uso empresa ou não. */
+  function alternarUsoEmpresaSemDias(checked: boolean) {
+    if (checked && !observacao.trim()) {
+      setAberto(true)
+      setObsObrigatoria(true)
+      setPendenteLegado(true)
       setTimeout(() => obsRef.current?.focus(), 0)
       return
     }
@@ -311,15 +339,23 @@ function CardLancamento({
   }
 
   function salvarObservacao() {
-    if (obsObrigatoria && observacao.trim()) {
+    if (obsObrigatoria && observacao.trim() && diasPendentes) {
       setObsObrigatoria(false)
-      onSalvar({ observacao, usoEmpresa: true })
-    } else {
-      onSalvar({ observacao })
+      setDiasPendentes(null)
+      onSalvar({ observacao, diasUsoEmpresa: diasPendentes, usoEmpresa: calcularUsoEmpresaLegado(diasPendentes) })
+      return
     }
+    if (obsObrigatoria && observacao.trim() && pendenteLegado) {
+      setObsObrigatoria(false)
+      setPendenteLegado(false)
+      onSalvar({ observacao, usoEmpresa: true })
+      return
+    }
+    onSalvar({ observacao })
   }
 
   const dias = lancamento.dias ?? []
+  const diasExcluidos = diasUsoEmpresaEfetivos(lancamento)
   const sab = dias.find((d) => diaSemanaCurto(d.data) === 'Sáb')
   const dom = dias.find((d) => diaSemanaCurto(d.data) === 'Dom')
   const cidades = mesclarLocaisDoFimDeSemana(dias)
@@ -355,11 +391,17 @@ function CardLancamento({
         </Celula>
         <Celula>
           <span className="text-[10px] uppercase tracking-wide text-base-500">Sábado</span>
-          <span className="font-medium text-base-100">{sab ? formatKm(sab.kmPercorrido) : '—'}</span>
+          <span className={`font-medium ${sab && diasExcluidos.has(sab.data) ? 'text-base-500 line-through' : 'text-base-100'}`}>
+            {sab ? formatKm(sab.kmPercorrido) : '—'}
+          </span>
+          {sab && diasExcluidos.has(sab.data) && <span className="text-[10px] text-base-500">🏢 empresa</span>}
         </Celula>
         <Celula>
           <span className="text-[10px] uppercase tracking-wide text-base-500">Domingo</span>
-          <span className="font-medium text-base-100">{dom ? formatKm(dom.kmPercorrido) : '—'}</span>
+          <span className={`font-medium ${dom && diasExcluidos.has(dom.data) ? 'text-base-500 line-through' : 'text-base-100'}`}>
+            {dom ? formatKm(dom.kmPercorrido) : '—'}
+          </span>
+          {dom && diasExcluidos.has(dom.data) && <span className="text-[10px] text-base-500">🏢 empresa</span>}
         </Celula>
         <Celula className="items-center">
           <span className="text-[10px] uppercase tracking-wide text-base-500">Cidade (mais tempo)</span>
@@ -402,16 +444,34 @@ function CardLancamento({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 border-t border-base-800/60 pt-4 sm:grid-cols-5">
-            <label className="flex items-center gap-2 text-sm text-base-300">
-              <input
-                type="checkbox"
-                checked={lancamento.usoEmpresa}
-                onChange={(e) => alternarUsoEmpresa(e.target.checked)}
-                title="Marcar se o gerente estava a trabalho — não gera reembolso. Exige observação com a justificativa."
-              />
-              Uso empresa
-            </label>
+          <div className="flex flex-wrap items-center gap-4 border-t border-base-800/60 pt-4">
+            <span className="text-xs text-base-500">Uso empresa (zera o dia):</span>
+            {dias.length === 0 ? (
+              <label className="flex items-center gap-2 text-sm text-base-300">
+                <input
+                  type="checkbox"
+                  checked={lancamento.usoEmpresa}
+                  onChange={(e) => alternarUsoEmpresaSemDias(e.target.checked)}
+                  title="Sem detalhe por dia pra essa semana — marca a semana inteira como uso empresa."
+                />
+                Semana inteira (sem detalhe por dia)
+              </label>
+            ) : (
+              dias.map((d) => (
+                <label key={d.data} className="flex items-center gap-2 text-sm text-base-300">
+                  <input
+                    type="checkbox"
+                    checked={diasExcluidos.has(d.data)}
+                    onChange={(e) => alternarDiaUsoEmpresa(d.data, e.target.checked)}
+                    title="Marcar se o gerente estava a trabalho nesse dia — não gera reembolso desse dia. Exige observação com a justificativa."
+                  />
+                  {diaSemanaCurto(d.data) === 'Sáb' ? 'Sábado' : diaSemanaCurto(d.data) === 'Dom' ? 'Domingo' : formatDataBR(d.data)}
+                </label>
+              ))
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 border-t border-base-800/60 pt-4 sm:grid-cols-4">
             <label className="flex items-center gap-2 text-sm text-base-300">
               <input
                 type="checkbox"

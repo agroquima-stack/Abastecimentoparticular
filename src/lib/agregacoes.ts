@@ -1,3 +1,4 @@
+import { diasUsoEmpresaEfetivos, kmEfetivo } from './calculo'
 import type { ComId, DiaResumo, Lancamento, LocalComTempo, Semana } from '../types/models'
 
 /** Junta os locais dos dois dias do fim de semana num só ranking por tempo parado — soma o
@@ -60,11 +61,12 @@ export function agregarPorGerente(semanas: ComId<Semana>[], porSemana: Record<st
       linha.placa = l.placa
       linha.filial = l.filial
       linha.placasSet.add(l.placa)
+      const kmParticularSemana = kmEfetivo(l)
       linha.totalKm += l.kmRodado || 0
-      if (!l.usoEmpresa) linha.kmParticular += l.kmRodado || 0
+      linha.kmParticular += kmParticularSemana
       linha.totalDevido += l.valorDevidoCalc || 0
       linha.totalPago += l.valorPago || 0
-      if (!l.usoEmpresa && l.kmRodado > 0) linha.semanasComUso += 1
+      if (kmParticularSemana > 0) linha.semanasComUso += 1
       if (l.naoRespondeu) {
         linha.semanasNaoRespondeu += 1
         linha.prejuizoNaoRespondeu += Math.max((l.valorDevidoCalc || 0) - (l.valorPago || 0), 0)
@@ -115,19 +117,22 @@ export interface JustificativaUsoEmpresa {
   semJustificativa: boolean
 }
 
-/** Agrupa os lançamentos marcados "uso empresa" pela observação (justificativa) informada —
- * ajuda a auditar os motivos alegados. Observação vazia (registro antigo, de antes da
- * justificativa virar obrigatória) cai no grupo "Sem justificativa", destacado à parte. */
+/** Agrupa os lançamentos com algum dia marcado "uso empresa" (semana inteira ou só um dia) pela
+ * observação (justificativa) informada — ajuda a auditar os motivos alegados. Observação vazia
+ * (registro antigo, de antes da justificativa virar obrigatória) cai no grupo "Sem
+ * justificativa", destacado à parte. */
 export function agregarJustificativasUsoEmpresa(porSemana: Record<string, ComId<Lancamento>[]>): JustificativaUsoEmpresa[] {
   const mapa = new Map<string, JustificativaUsoEmpresa>()
   for (const lancamentos of Object.values(porSemana)) {
     for (const l of lancamentos) {
-      if (!l.usoEmpresa) continue
+      const excluidos = diasUsoEmpresaEfetivos(l)
+      if (excluidos.size === 0) continue
+      const kmExcluido = l.dias && l.dias.length > 0 ? l.dias.reduce((acc, d) => acc + (excluidos.has(d.data) ? d.kmPercorrido : 0), 0) : l.kmRodado || 0
       const texto = l.observacao?.trim() || 'Sem justificativa'
       const chave = texto.toLowerCase()
       const atual = mapa.get(chave) ?? { observacao: texto, ocorrencias: 0, km: 0, semJustificativa: !l.observacao?.trim() }
       atual.ocorrencias += 1
-      atual.km += l.kmRodado || 0
+      atual.km += kmExcluido
       mapa.set(chave, atual)
     }
   }

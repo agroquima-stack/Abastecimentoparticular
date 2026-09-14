@@ -58,7 +58,15 @@ export interface Lancamento {
   gerente: string
   filial: string
   kmRodado: number
+  /** true = todos os dias do fim de semana são uso empresa (mantido por compatibilidade e pra
+   * filtro rápido de status — sempre recalculado a partir de `diasUsoEmpresa` ao salvar). Pra
+   * zerar só um dia específico (ex.: sábado uso empresa, domingo particular), use
+   * `diasUsoEmpresa`. */
   usoEmpresa: boolean
+  /** Datas (ISO, batendo com `dias[].data`) marcadas como uso empresa — só o km desses dias sai
+   * do cálculo. Registros antigos (de antes desse campo existir) não têm isso preenchido; nesse
+   * caso o dia inteiro segue a flag legada `usoEmpresa`. */
+  diasUsoEmpresa?: string[]
   naoRespondeu: boolean
   valorPago: number | null
   dataPagamento: string | null

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { calcularValorDevido } from '../lib/calculo'
+import { calcularValorDevido, kmEfetivo } from '../lib/calculo'
 import type { ParadasPorVeiculo } from '../lib/parseParadas'
 import type { ResultadoParseRota } from '../lib/parseRota'
 import { atualizarDoc, gravarDoc, gravarLote, observarColecao } from '../lib/store'
@@ -66,18 +66,22 @@ export function useSemanas() {
       const kmRodado = linha?.kmPercorrido ?? 0
       const existente = existentes[v.placa]
       const usoEmpresa = existente?.usoEmpresa ?? false
+      const diasUsoEmpresa = existente?.diasUsoEmpresa
+      const dias = montarDias(v.placa, resultado, paradas) ?? existente?.dias
+      const kmParaCalculo = kmEfetivo({ kmRodado, usoEmpresa, diasUsoEmpresa, dias })
       lote[v.placa] = {
         placa: v.placa,
         gerente: v.gerente,
         filial: v.filial,
         kmRodado,
         usoEmpresa,
+        diasUsoEmpresa,
         naoRespondeu: existente?.naoRespondeu ?? false,
         valorPago: existente?.valorPago ?? null,
         dataPagamento: existente?.dataPagamento ?? null,
         observacao: existente?.observacao ?? '',
-        valorDevidoCalc: calcularValorDevido(kmRodado, usoEmpresa, kmLExigido, precoDiesel),
-        dias: montarDias(v.placa, resultado, paradas) ?? existente?.dias,
+        valorDevidoCalc: calcularValorDevido(kmParaCalculo, kmLExigido, precoDiesel),
+        dias,
       }
     }
 
