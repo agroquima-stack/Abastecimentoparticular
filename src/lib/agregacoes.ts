@@ -146,8 +146,9 @@ export function agregarJustificativasUsoEmpresa(porSemana: Record<string, ComId<
   for (const lancamentos of Object.values(porSemana)) {
     for (const l of lancamentos) {
       const excluidos = diasUsoEmpresaEfetivos(l)
-      if (excluidos.size === 0) continue
-      const kmExcluido = l.dias && l.dias.length > 0 ? l.dias.reduce((acc, d) => acc + (excluidos.has(d.data) ? d.kmPercorrido : 0), 0) : l.kmRodado || 0
+      const temParcial = Object.values(l.kmEmpresaDia ?? {}).some((v) => v > 0)
+      if (excluidos.size === 0 && !temParcial) continue
+      const kmExcluido = l.dias && l.dias.length > 0 ? Math.max((l.kmRodado || 0) - kmEfetivo(l), 0) : l.kmRodado || 0
       const texto = l.observacao?.trim() || 'Sem justificativa'
       const chave = texto.toLowerCase()
       const atual = mapa.get(chave) ?? { observacao: texto, ocorrencias: 0, km: 0, semJustificativa: !l.observacao?.trim() }

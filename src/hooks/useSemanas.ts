@@ -75,7 +75,8 @@ export function useSemanas() {
       const usoEmpresa = existente?.usoEmpresa ?? false
       const diasUsoEmpresa = existente?.diasUsoEmpresa
       const dias = montarDias(v.placa, resultado, paradas) ?? existente?.dias
-      const kmParaCalculo = kmEfetivo({ kmRodado, usoEmpresa, diasUsoEmpresa, dias })
+      const kmEmpresaDia = existente?.kmEmpresaDia
+      const kmParaCalculo = kmEfetivo({ kmRodado, usoEmpresa, diasUsoEmpresa, dias, kmEmpresaDia })
       lote[v.placa] = {
         placa: v.placa,
         // Semana já importada mantém o condutor/filial da época (reimportar depois de uma troca de
@@ -85,6 +86,7 @@ export function useSemanas() {
         kmRodado,
         usoEmpresa,
         diasUsoEmpresa,
+        ...(kmEmpresaDia ? { kmEmpresaDia } : {}),
         naoRespondeu: existente?.naoRespondeu ?? false,
         valorPago: existente?.valorPago ?? null,
         dataPagamento: existente?.dataPagamento ?? null,

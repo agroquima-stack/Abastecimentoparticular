@@ -299,6 +299,8 @@ function CardLancamento({
   const [obsObrigatoria, setObsObrigatoria] = useState(false)
   const [diasPendentes, setDiasPendentes] = useState<string[] | null>(null)
   const [pendenteLegado, setPendenteLegado] = useState(false)
+  const [kmParcialPendente, setKmParcialPendente] = useState<Record<string, number> | null>(null)
+  const [kmParcialTexto, setKmParcialTexto] = useState<Record<string, string>>({})
   const obsRef = useRef<HTMLInputElement>(null)
 
   function calcularUsoEmpresaLegado(diasUsoEmpresaNovo: string[]) {
@@ -338,7 +340,32 @@ function CardLancamento({
     onSalvar({ usoEmpresa: checked })
   }
 
+  /** Uso misto no mesmo dia: informa quantos km do dia foram da empresa (o resto segue particular). */
+  function definirKmEmpresaDia(data: string, texto: string, kmDia: number) {
+    const n = Math.min(Math.max(Number(texto.replace(',', '.')) || 0, 0), kmDia)
+    const novo = { ...(lancamento.kmEmpresaDia ?? {}) }
+    if (n > 0) novo[data] = n
+    else delete novo[data]
+    setKmParcialTexto((t) => ({ ...t, [data]: n > 0 ? String(n) : '' }))
+    if (n > 0 && !observacao.trim()) {
+      setAberto(true)
+      setObsObrigatoria(true)
+      setKmParcialPendente(novo)
+      setTimeout(() => obsRef.current?.focus(), 0)
+      return
+    }
+    setObsObrigatoria(false)
+    onSalvar({ kmEmpresaDia: novo })
+  }
+
   function salvarObservacao() {
+    if (obsObrigatoria && observacao.trim() && kmParcialPendente) {
+      setObsObrigatoria(false)
+      const km = kmParcialPendente
+      setKmParcialPendente(null)
+      onSalvar({ observacao, kmEmpresaDia: km })
+      return
+    }
     if (obsObrigatoria && observacao.trim() && diasPendentes) {
       setObsObrigatoria(false)
       setDiasPendentes(null)
@@ -458,15 +485,37 @@ function CardLancamento({
               </label>
             ) : (
               dias.map((d) => (
-                <label key={d.data} className="flex items-center gap-2 text-sm text-base-300">
-                  <input
-                    type="checkbox"
-                    checked={diasExcluidos.has(d.data)}
-                    onChange={(e) => alternarDiaUsoEmpresa(d.data, e.target.checked)}
-                    title="Marcar se o gerente estava a trabalho nesse dia — não gera reembolso desse dia. Exige observação com a justificativa."
-                  />
-                  {diaSemanaCurto(d.data) === 'Sáb' ? 'Sábado' : diaSemanaCurto(d.data) === 'Dom' ? 'Domingo' : formatDataBR(d.data)}
-                </label>
+                <div key={d.data} className="flex items-center gap-2 text-sm text-base-300">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={diasExcluidos.has(d.data)}
+                      onChange={(e) => alternarDiaUsoEmpresa(d.data, e.target.checked)}
+                      title="Marcar se o gerente estava a trabalho o dia todo — não gera reembolso desse dia. Exige observação com a justificativa."
+                    />
+                    {diaSemanaCurto(d.data) === 'Sáb' ? 'Sábado' : diaSemanaCurto(d.data) === 'Dom' ? 'Domingo' : formatDataBR(d.data)}
+                  </label>
+                  {!diasExcluidos.has(d.data) && (
+                    <label className="flex items-center gap-1 text-xs text-base-400" title="Uso misto: quantos km desse dia foram a trabalho. Esse km sai do cálculo; o resto continua particular.">
+                      · parte empresa
+                      <input
+                        type="number"
+                        min={0}
+                        max={d.kmPercorrido}
+                        step="0.1"
+                        value={kmParcialTexto[d.data] ?? (lancamento.kmEmpresaDia?.[d.data]?.toString() ?? '')}
+                        onChange={(e) => setKmParcialTexto((t) => ({ ...t, [d.data]: e.target.value }))}
+                        onBlur={(e) => definirKmEmpresaDia(d.data, e.target.value, d.kmPercorrido)}
+                        placeholder="0"
+                        className="w-20 rounded-md border border-base-700 bg-base-900 px-2 py-0.5 text-sm text-base-100 outline-none focus:border-brand-400"
+                      />
+                      km
+                      {(lancamento.kmEmpresaDia?.[d.data] ?? 0) > 0 && (
+                        <span className="text-base-500">(particular: {formatKm(d.kmPercorrido - (lancamento.kmEmpresaDia?.[d.data] ?? 0))})</span>
+                      )}
+                    </label>
+                  )}
+                </div>
               ))
             )}
           </div>

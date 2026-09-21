@@ -24,10 +24,13 @@ export function diasUsoEmpresaEfetivos(l: Pick<Lancamento, 'usoEmpresa' | 'diasU
 /** Km que efetivamente conta pro reembolso: soma o km de cada dia do fim de semana, exceto os
  * marcados como uso empresa. Sem detalhe por dia (semana antiga sem `dias`), cai no
  * comportamento antigo — tudo ou nada pela flag `usoEmpresa`. */
-export function kmEfetivo(l: Pick<Lancamento, 'kmRodado' | 'usoEmpresa' | 'diasUsoEmpresa' | 'dias'>): number {
+export function kmEfetivo(l: Pick<Lancamento, 'kmRodado' | 'usoEmpresa' | 'diasUsoEmpresa' | 'dias'> & { kmEmpresaDia?: Record<string, number> }): number {
   if (!l.dias || l.dias.length === 0) return l.usoEmpresa ? 0 : l.kmRodado
   const excluidos = diasUsoEmpresaEfetivos(l)
-  return l.dias.reduce((acc, d) => acc + (excluidos.has(d.data) ? 0 : d.kmPercorrido), 0)
+  return l.dias.reduce((acc, d) => {
+    if (excluidos.has(d.data)) return acc
+    return acc + Math.max(d.kmPercorrido - (l.kmEmpresaDia?.[d.data] ?? 0), 0)
+  }, 0)
 }
 
 /** Tolerância combinada com o usuário (set/2026): gerente que abastece um pouco menos que o

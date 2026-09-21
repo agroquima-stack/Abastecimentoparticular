@@ -67,6 +67,10 @@ export interface Lancamento {
    * do cálculo. Registros antigos (de antes desse campo existir) não têm isso preenchido; nesse
    * caso o dia inteiro segue a flag legada `usoEmpresa`. */
   diasUsoEmpresa?: string[]
+  /** Km de uso empresa DENTRO de um dia em que o gerente usou o carro pra trabalho e pra
+   * particular (data ISO -> km da empresa). Esse km sai do cálculo; o restante do dia segue como
+   * particular. Exige observação. */
+  kmEmpresaDia?: Record<string, number>
   naoRespondeu: boolean
   valorPago: number | null
   dataPagamento: string | null
