@@ -159,3 +159,49 @@ export function agregarJustificativasUsoEmpresa(porSemana: Record<string, ComId<
   }
   return [...mapa.values()].sort((a, b) => b.ocorrencias - a.ocorrencias)
 }
+
+export interface UsoEmpresaGerente {
+  gerente: string
+  ocorrencias: number
+  /** km de uso empresa (dias inteiros + parte informada) no período */
+  km: number
+  /** km total rodado pelo gerente no período — base pra ver o peso do uso empresa dele */
+  kmTotal: number
+  /** km empresa / km total */
+  percentual: number
+  justificativas: JustificativaUsoEmpresa[]
+  semJustificativa: boolean
+}
+
+/** Uso empresa agrupado por condutor, com as justificativas que cada um deu. Mostra quem mais usa
+ * a justificativa e o peso dela no km total dele (condutor com % alto merece conferência). */
+export function agregarUsoEmpresaPorGerente(porSemana: Record<string, ComId<Lancamento>[]>): UsoEmpresaGerente[] {
+  const mapa = new Map<string, UsoEmpresaGerente>()
+  for (const lancamentos of Object.values(porSemana)) {
+    for (const l of lancamentos) {
+      const atual = mapa.get(l.gerente) ?? { gerente: l.gerente, ocorrencias: 0, km: 0, kmTotal: 0, percentual: 0, justificativas: [], semJustificativa: false }
+      atual.kmTotal += l.kmRodado || 0
+      mapa.set(l.gerente, atual)
+      const excluidos = diasUsoEmpresaEfetivos(l)
+      const temParcial = Object.values(l.kmEmpresaDia ?? {}).some((v) => v > 0)
+      if (excluidos.size === 0 && !temParcial) continue
+      const km = l.dias && l.dias.length > 0 ? Math.max((l.kmRodado || 0) - kmEfetivo(l), 0) : l.kmRodado || 0
+      const texto = l.observacao?.trim() || 'Sem justificativa'
+      const sem = !l.observacao?.trim()
+      atual.ocorrencias += 1
+      atual.km += km
+      if (sem) atual.semJustificativa = true
+      const j = atual.justificativas.find((x) => x.observacao.toLowerCase() === texto.toLowerCase())
+      if (j) {
+        j.ocorrencias += 1
+        j.km += km
+      } else {
+        atual.justificativas.push({ observacao: texto, ocorrencias: 1, km, semJustificativa: sem })
+      }
+    }
+  }
+  return [...mapa.values()]
+    .filter((g) => g.ocorrencias > 0)
+    .map((g) => ({ ...g, percentual: g.kmTotal > 0 ? (g.km / g.kmTotal) * 100 : 0, justificativas: g.justificativas.sort((a, b) => b.km - a.km) }))
+    .sort((a, b) => b.km - a.km)
+}

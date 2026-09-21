@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { KpiCard } from '../components/KpiCard'
 import { FiltroPeriodo, filtrarSemanas } from '../components/FiltroPeriodo'
 import { useSemanas } from '../hooks/useSemanas'
 import { useTodosLancamentos } from '../hooks/useLancamentos'
-import { agregarJustificativasUsoEmpresa, agregarPorGerente, agregarPorSemana } from '../lib/agregacoes'
+import { agregarJustificativasUsoEmpresa, agregarPorGerente, agregarPorSemana, agregarUsoEmpresaPorGerente } from '../lib/agregacoes'
 import { TOLERANCIA_REEMBOLSO, percentualApurado } from '../lib/calculo'
 import { CartaoTooltip, conteudoTooltip, CURSOR_SUAVE } from '../components/TooltipGrafico'
 import { formatMoeda, formatKm, formatDataBR, nomeCurto } from '../lib/format'
@@ -91,6 +91,8 @@ export function Dashboard() {
   )
 
   const justificativasUsoEmpresa = useMemo(() => agregarJustificativasUsoEmpresa(porSemana), [porSemana])
+  const usoEmpresaPorGerente = useMemo(() => agregarUsoEmpresaPorGerente(porSemana), [porSemana])
+  const [visaoUsoEmpresa, setVisaoUsoEmpresa] = useState<'condutor' | 'justificativa'>('condutor')
 
   const periodoDa = (semanaId: string) => {
     const s = semanas.find((x) => x.id === semanaId)
@@ -177,6 +179,34 @@ export function Dashboard() {
   const ultimaSemana = semanas[0]
   const lancamentosUltimaSemana = ultimaSemana ? (porSemana[ultimaSemana.id] ?? []) : []
   const kmUltimaSemana = lancamentosUltimaSemana.reduce((acc, l) => acc + (l.kmRodado || 0), 0)
+  // Semana anterior à última do período (busca em todas as semanas, mesmo fora do filtro).
+  const idxUltima = ultimaSemana ? todasSemanas.findIndex((s) => s.id === ultimaSemana.id) : -1
+  const semanaAnterior = idxUltima >= 0 ? todasSemanas[idxUltima + 1] : undefined
+  const kmSemanaAnterior = semanaAnterior ? (porSemanaTodas[semanaAnterior.id] ?? []).reduce((acc, l) => acc + (l.kmRodado || 0), 0) : null
+  const variacaoKm =
+    kmSemanaAnterior && kmSemanaAnterior > 0
+      ? (() => {
+          const pct = ((kmUltimaSemana - kmSemanaAnterior) / kmSemanaAnterior) * 100
+          return {
+            texto: `${Math.abs(pct).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% vs semana anterior (${formatKm(kmSemanaAnterior)})`,
+            sentido: (Math.abs(pct) < 0.05 ? 'igual' : pct > 0 ? 'subiu' : 'desceu') as 'subiu' | 'desceu' | 'igual',
+            bom: null,
+          }
+        })()
+      : undefined
+  const totalDevidoGeral = serieSemanal.reduce((acc, p) => acc + p.totalDevido, 0)
+  const pctReembolsado = totalDevidoGeral > 0 ? (serieSemanal.reduce((acc, p) => acc + p.totalPago, 0) / totalDevidoGeral) * 100 : null
+  const pctSemana = (p?: PontoSemana) => (p && p.totalDevido > 0 ? (p.totalPago / p.totalDevido) * 100 : null)
+  const pctUltima = pctSemana(serieSemanal[serieSemanal.length - 1])
+  const pctAnterior = pctSemana(serieSemanal[serieSemanal.length - 2])
+  const variacaoPct =
+    pctUltima !== null && pctAnterior !== null
+      ? {
+          texto: `${Math.abs(pctUltima - pctAnterior).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} p.p. vs semana anterior (${pctAnterior.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%)`,
+          sentido: (Math.abs(pctUltima - pctAnterior) < 0.05 ? 'igual' : pctUltima > pctAnterior ? 'subiu' : 'desceu') as 'subiu' | 'desceu' | 'igual',
+          bom: pctUltima >= pctAnterior,
+        }
+      : undefined
 
   const saldoAberto = contaCorrente.reduce((acc, l) => acc + Math.max(l.saldo, 0), 0)
   const totalPagoGeral = contaCorrente.reduce((acc, l) => acc + l.totalPago, 0)
@@ -209,15 +239,28 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard label="Km rodado (última semana do período)" valor={formatKm(kmUltimaSemana)} tom="neutro" />
+        <KpiCard label="Km rodado (última semana do período)" valor={formatKm(kmUltimaSemana)} tom="neutro" variacao={variacaoKm} />
         <KpiCard
           label="Saldo em aberto (a reembolsar)"
           valor={formatMoeda(saldoAberto)}
           tom={saldoAberto > 0 ? 'atencao' : 'bom'}
           detalhe={`${gerentesComSaldo} gerente(s) com saldo pendente`}
         />
-        <KpiCard label="Total já reembolsado" valor={formatMoeda(totalPagoGeral)} tom="bom" />
-        <KpiCard label="Semanas no período" valor={String(semanas.length)} tom="neutro" />
+        <KpiCard
+          label="Total já reembolsado"
+          valor={formatMoeda(totalPagoGeral)}
+          tom="bom"
+          progresso={pctReembolsado ?? 0}
+          detalhe={`de ${formatMoeda(totalDevidoGeral)} a ser reembolsado no período`}
+        />
+        <KpiCard
+          label="% do apurado pago"
+          valor={pctReembolsado === null ? '—' : `${pctReembolsado.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`}
+          tom={pctReembolsado === null ? 'neutro' : pctReembolsado >= LIMITE_TOLERANCIA_PCT ? 'bom' : pctReembolsado >= 70 ? 'atencao' : 'critico'}
+          progresso={pctReembolsado ?? 0}
+          variacao={variacaoPct}
+          detalhe={`${semanas.length} semana(s) no período · meta ≥ ${LIMITE_TOLERANCIA_PCT}%`}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -312,9 +355,60 @@ export function Dashboard() {
       </div>
 
       <div className="rounded-xl border border-base-800/60 bg-base-900/60 p-4">
-        <h2 className="mb-3 text-sm font-semibold text-base-200">Uso empresa — por justificativa</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-base-200">Uso empresa — por {visaoUsoEmpresa === 'condutor' ? 'condutor' : 'justificativa'}</h2>
+          <div className="flex overflow-hidden rounded-lg border border-base-700 text-xs">
+            {(['condutor', 'justificativa'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setVisaoUsoEmpresa(v)}
+                className={`px-3 py-1 ${visaoUsoEmpresa === v ? 'bg-brand-700/30 text-brand-200' : 'text-base-400 hover:bg-base-800'}`}
+              >
+                Por {v}
+              </button>
+            ))}
+          </div>
+        </div>
         {justificativasUsoEmpresa.length === 0 ? (
           <p className="text-sm text-base-500">Nenhum "uso empresa" marcado no período.</p>
+        ) : visaoUsoEmpresa === 'condutor' ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-b border-base-800 text-left text-xs uppercase tracking-wide text-base-500">
+                  <th className="py-2 pr-3">Condutor / justificativas</th>
+                  <th className="py-2 pr-3 text-right">Ocorrências</th>
+                  <th className="py-2 pr-3 text-right">Km empresa</th>
+                  <th className="py-2 pr-3 text-right" title="Km empresa ÷ km total rodado pelo condutor no período">% do km dele</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usoEmpresaPorGerente.map((g) => (
+                  <Fragment key={g.gerente}>
+                    <tr className="border-t border-base-800/60">
+                      <td className="pt-2 pr-3 font-medium text-base-100">
+                        {nomeCurto(g.gerente)}
+                        {g.semJustificativa && <span className="ml-2 text-xs italic text-warn-300">falta justificativa</span>}
+                      </td>
+                      <td className="pt-2 pr-3 text-right">{g.ocorrencias}</td>
+                      <td className="pt-2 pr-3 text-right">{formatKm(g.km)}</td>
+                      <td className={`pt-2 pr-3 text-right font-medium ${g.percentual >= 50 ? 'text-crit-400' : g.percentual >= 25 ? 'text-warn-300' : 'text-base-300'}`}>
+                        {g.percentual.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%
+                      </td>
+                    </tr>
+                    {g.justificativas.map((j) => (
+                      <tr key={j.observacao}>
+                        <td className={`py-0.5 pl-5 pr-3 text-xs ${j.semJustificativa ? 'italic text-warn-300' : 'text-base-400'}`}>↳ {j.observacao}</td>
+                        <td className="py-0.5 pr-3 text-right text-xs text-base-500">{j.ocorrencias}</td>
+                        <td className="py-0.5 pr-3 text-right text-xs text-base-500">{formatKm(j.km)}</td>
+                        <td />
+                      </tr>
+                    ))}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] text-sm">
