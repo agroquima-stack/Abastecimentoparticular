@@ -49,8 +49,22 @@ export function compararCadastro(atual: ComId<Veiculo>[], base: ResultadoBase): 
   }
 
   for (const a of atual) {
-    if (!a.ativo || placasGerentes.has(a.placa)) continue
+    if (placasGerentes.has(a.placa)) continue
     const o = base.outros.get(a.placa)
+    if (!a.ativo) {
+      // Placa desativada no cadastro mas ativa na base com condutor: oferece reativar (foi o caso
+      // da placa que trocou de condutor e ficou parada como inativa).
+      if (o) {
+        mudancas.push({
+          tipo: 'novo',
+          placa: a.placa,
+          antes: a,
+          depois: { placa: a.placa, gerente: o.condutor, filial: o.filial || a.filial, modelo: o.modelo || a.modelo, tipo: o.tipo || a.tipo, ativo: true },
+          motivo: `estava inativa no cadastro; ${textoFuncao(o.funcao)}`,
+        })
+      }
+      continue
+    }
     if (o && norm(o.condutor) !== norm(a.gerente)) {
       mudancas.push({
         tipo: 'troca',

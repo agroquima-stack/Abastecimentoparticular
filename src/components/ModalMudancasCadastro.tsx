@@ -64,6 +64,7 @@ export function ModalMudancasCadastro({ mudancas, onAplicar, onCancelar }: Props
                             <span className="text-base-500">
                               · {m.depois?.filial} · {m.depois?.modelo}
                             </span>
+                            {m.motivo && <span className="ml-2 text-xs text-warn-300">({m.motivo})</span>}
                           </span>
                         ) : m.tipo === 'troca' ? (
                           <span>

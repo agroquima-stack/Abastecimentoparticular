@@ -36,10 +36,12 @@ export function useVeiculos() {
   async function aplicarMudancas(mudancas: Mudanca[]) {
     const agora = new Date().toISOString()
     for (const m of mudancas) {
+      // "id" vem do doc lido do banco; não deve voltar como campo do documento.
+      const { id: _id, ...antes } = (m.antes ?? {}) as Partial<ComId<Veiculo>>
       if (m.tipo === 'saiu' && m.antes) {
-        await gravarDoc(PATH, m.placa, { ...m.antes, ativo: false })
+        await gravarDoc(PATH, m.placa, { ...antes, ativo: false })
       } else if (m.depois) {
-        await gravarDoc(PATH, m.placa, { ...(m.antes ?? {}), ...m.depois, ativo: true })
+        await gravarDoc(PATH, m.placa, { ...antes, ...m.depois, ativo: true })
       }
       await gravarDoc<HistoricoVeiculo>(PATH_HIST, `${m.placa}_${agora}`, {
         placa: m.placa,
