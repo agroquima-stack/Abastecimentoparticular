@@ -6,7 +6,9 @@ import { useSemanas } from '../hooks/useSemanas'
 import { useTodosLancamentos } from '../hooks/useLancamentos'
 import { agregarJustificativasUsoEmpresa, agregarPorGerente, agregarPorSemana } from '../lib/agregacoes'
 import { TOLERANCIA_REEMBOLSO, percentualApurado } from '../lib/calculo'
+import { CartaoTooltip, conteudoTooltip, CURSOR_SUAVE } from '../components/TooltipGrafico'
 import { formatMoeda, formatKm, formatDataBR } from '../lib/format'
+import type { PontoSemana } from '../lib/agregacoes'
 
 const LIMITE_TOLERANCIA_PCT = (1 - TOLERANCIA_REEMBOLSO) * 100 // 90%
 
@@ -32,7 +34,16 @@ export function Dashboard() {
         .slice()
         .sort((a, b) => b.kmParticular - a.kmParticular)
         .slice(0, 15)
-        .map((l) => ({ gerente: l.gerente, km: Math.round(l.kmParticular * 10) / 10 })),
+        .map((l) => ({
+          gerente: l.gerente,
+          km: Math.round(l.kmParticular * 10) / 10,
+          kmTotal: l.totalKm,
+          kmEmpresa: l.kmUsoEmpresa,
+          placas: l.placas.join(', '),
+          filial: l.filial,
+          semanas: l.semanasComUso,
+          devido: l.totalDevido,
+        })),
     [contaCorrente],
   )
   const rankingNaoResponderam = useMemo(
@@ -42,7 +53,16 @@ export function Dashboard() {
         .slice()
         .sort((a, b) => b.prejuizoNaoRespondeu - a.prejuizoNaoRespondeu)
         .slice(0, 15)
-        .map((l) => ({ gerente: l.gerente, prejuizo: Math.round(l.prejuizoNaoRespondeu * 100) / 100, semanas: l.semanasNaoRespondeu })),
+        .map((l) => ({
+          gerente: l.gerente,
+          prejuizo: Math.round(l.prejuizoNaoRespondeu * 100) / 100,
+          semanas: l.semanasNaoRespondeu,
+          filial: l.filial,
+          placas: l.placas.join(', '),
+          devidoTotal: l.totalDevido,
+          pagoTotal: l.totalPago,
+          km: l.totalKm,
+        })),
     [contaCorrente],
   )
   const prejuizoTotalNaoResponderam = contaCorrente.reduce((acc, l) => acc + l.prejuizoNaoRespondeu, 0)
@@ -58,6 +78,12 @@ export function Dashboard() {
           gerente: l.gerente,
           percentual: percentualApurado(l.totalPago, l.totalDevido) ?? 0,
           pendente: Math.max(l.totalDevido - l.totalPago, 0),
+          apurado: l.totalDevido,
+          lancado: l.totalPago,
+          filial: l.filial,
+          placas: l.placas.join(', '),
+          semanasParciais: l.semanasParciais,
+          faltaParaTolerancia: Math.max(l.totalDevido * (1 - TOLERANCIA_REEMBOLSO) - l.totalPago, 0),
         }))
         .sort((a, b) => a.percentual - b.percentual)
         .slice(0, 15),
@@ -65,6 +91,88 @@ export function Dashboard() {
   )
 
   const justificativasUsoEmpresa = useMemo(() => agregarJustificativasUsoEmpresa(porSemana), [porSemana])
+
+  const periodoDa = (semanaId: string) => {
+    const s = semanas.find((x) => x.id === semanaId)
+    return s ? `${formatDataBR(s.dataInicio)} a ${formatDataBR(s.dataFim)}` : semanaId
+  }
+  const tooltipKmSemana = conteudoTooltip<PontoSemana>((d) => (
+    <CartaoTooltip
+      titulo="Km rodado no fim de semana"
+      subtitulo={periodoDa(d.semanaId)}
+      linhas={[
+        { rotulo: 'Km total rodado', valor: formatKm(d.totalKm) },
+        { rotulo: 'Km particular (reembolsável)', valor: formatKm(d.kmParticular), tom: 'atencao' },
+        { rotulo: 'Km uso empresa (zerado)', valor: formatKm(d.kmUsoEmpresa) },
+        { rotulo: 'Gerentes que rodaram', valor: d.gerentesComKm, separador: true },
+        { rotulo: 'Média por gerente', valor: formatKm(d.gerentesComKm ? d.totalKm / d.gerentesComKm : 0) },
+      ]}
+    />
+  ))
+  const tooltipDevidoPago = conteudoTooltip<PontoSemana>((d) => (
+    <CartaoTooltip
+      titulo="Devido x Pago"
+      subtitulo={periodoDa(d.semanaId)}
+      linhas={[
+        { rotulo: 'Devido (apurado)', valor: formatMoeda(d.totalDevido) },
+        { rotulo: 'Pago / reembolsado', valor: formatMoeda(d.totalPago), tom: 'bom' },
+        { rotulo: 'Pendente', valor: formatMoeda(d.totalPendente), tom: d.totalPendente > 0 ? 'atencao' : 'bom' },
+        { rotulo: '% do apurado pago', valor: `${d.totalDevido ? Math.round((d.totalPago / d.totalDevido) * 1000) / 10 : 0}%`, separador: true },
+        { rotulo: 'Gerentes em dia', valor: d.gerentesEmDia, tom: 'bom' },
+        { rotulo: 'Gerentes pendentes', valor: d.gerentesPendentes, tom: d.gerentesPendentes > 0 ? 'atencao' : undefined },
+      ]}
+      nota="Em dia = pagou pelo menos 90% do apurado (tolerância de 10%)."
+    />
+  ))
+  type LinhaKm = (typeof kmParticularPorGerente)[number]
+  const tooltipKmGerente = conteudoTooltip<LinhaKm>((d) => (
+    <CartaoTooltip
+      titulo={d.gerente}
+      subtitulo={`${d.filial} · ${d.placas}`}
+      linhas={[
+        { rotulo: 'Km particular', valor: formatKm(d.km), tom: 'atencao' },
+        { rotulo: 'Km total rodado', valor: formatKm(d.kmTotal) },
+        { rotulo: 'Km uso empresa (zerado)', valor: formatKm(d.kmEmpresa) },
+        { rotulo: '% particular do total', valor: `${d.kmTotal ? Math.round((d.km / d.kmTotal) * 100) : 0}%`, separador: true },
+        { rotulo: 'Semanas com uso particular', valor: d.semanas },
+        { rotulo: 'Valor devido no período', valor: formatMoeda(d.devido) },
+      ]}
+    />
+  ))
+  type LinhaPrejuizo = (typeof rankingNaoResponderam)[number]
+  const tooltipPrejuizo = conteudoTooltip<LinhaPrejuizo>((d) => (
+    <CartaoTooltip
+      titulo={d.gerente}
+      subtitulo={`${d.filial} · ${d.placas}`}
+      linhas={[
+        { rotulo: 'Prejuízo (devido não resolvido)', valor: formatMoeda(d.prejuizo), tom: 'critico' },
+        { rotulo: 'Semanas sem responder', valor: d.semanas, tom: 'atencao' },
+        { rotulo: 'Devido total no período', valor: formatMoeda(d.devidoTotal), separador: true },
+        { rotulo: 'Pago no período', valor: formatMoeda(d.pagoTotal) },
+        { rotulo: 'Km rodado no período', valor: formatKm(d.km) },
+      ]}
+      nota="Prejuízo = valor devido (menos o que já foi pago) nas semanas marcadas como não respondeu."
+    />
+  ))
+  type LinhaAbaixo = (typeof percentualApuradoPorGerente)[number]
+  const tooltipAbaixo = conteudoTooltip<LinhaAbaixo>((d) => (
+    <CartaoTooltip
+      titulo={d.gerente}
+      subtitulo={`${d.filial} · ${d.placas}`}
+      linhas={[
+        { rotulo: 'Valor apurado', valor: formatMoeda(d.apurado) },
+        { rotulo: 'Valor lançado', valor: formatMoeda(d.lancado), tom: 'bom' },
+        { rotulo: 'Pendente', valor: formatMoeda(d.pendente), tom: 'atencao' },
+        { rotulo: '% do apurado abastecido', valor: `${d.percentual}%`, tom: d.percentual >= LIMITE_TOLERANCIA_PCT ? 'bom' : 'atencao', separador: true },
+        {
+          rotulo: d.percentual >= LIMITE_TOLERANCIA_PCT ? 'Situação' : `Faltou p/ ${LIMITE_TOLERANCIA_PCT}%`,
+          valor: d.percentual >= LIMITE_TOLERANCIA_PCT ? 'Dentro da tolerância' : formatMoeda(d.faltaParaTolerancia),
+          tom: d.percentual >= LIMITE_TOLERANCIA_PCT ? 'bom' : 'critico',
+        },
+        { rotulo: 'Semanas abaixo da tolerância', valor: d.semanasParciais },
+      ]}
+    />
+  ))
 
   const ultimaSemana = semanas[0]
   const lancamentosUltimaSemana = ultimaSemana ? (porSemana[ultimaSemana.id] ?? []) : []
@@ -120,7 +228,7 @@ export function Dashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-base-800)" />
               <XAxis dataKey="label" stroke="var(--color-base-400)" fontSize={11} />
               <YAxis stroke="var(--color-base-400)" fontSize={11} />
-              <Tooltip contentStyle={{ background: 'var(--color-base-850)', border: '1px solid var(--color-base-700)', fontSize: 12 }} formatter={((v: number) => formatKm(v)) as never} />
+              <Tooltip cursor={CURSOR_SUAVE} content={tooltipKmSemana} />
               <Bar dataKey="totalKm" fill="var(--color-brand-500)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -132,7 +240,7 @@ export function Dashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-base-800)" />
               <XAxis dataKey="label" stroke="var(--color-base-400)" fontSize={11} />
               <YAxis stroke="var(--color-base-400)" fontSize={11} />
-              <Tooltip contentStyle={{ background: 'var(--color-base-850)', border: '1px solid var(--color-base-700)', fontSize: 12 }} formatter={((v: number) => formatMoeda(v)) as never} />
+              <Tooltip content={tooltipDevidoPago} />
               <Line type="monotone" dataKey="totalDevido" name="Devido" stroke="var(--color-warn-500)" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="totalPago" name="Pago" stroke="var(--color-good-500)" strokeWidth={2} dot={false} />
             </LineChart>
@@ -151,7 +259,7 @@ export function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-base-800)" />
                 <XAxis type="number" stroke="var(--color-base-400)" fontSize={11} />
                 <YAxis type="category" dataKey="gerente" stroke="var(--color-base-400)" fontSize={11} width={160} />
-                <Tooltip contentStyle={{ background: 'var(--color-base-850)', border: '1px solid var(--color-base-700)', fontSize: 12 }} formatter={((v: number) => formatKm(v)) as never} />
+                <Tooltip cursor={CURSOR_SUAVE} content={tooltipKmGerente} />
                 <Bar dataKey="km" fill="var(--color-brand-500)" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -170,13 +278,7 @@ export function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-base-800)" />
                 <XAxis type="number" stroke="var(--color-base-400)" fontSize={11} />
                 <YAxis type="category" dataKey="gerente" stroke="var(--color-base-400)" fontSize={11} width={160} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--color-base-850)', border: '1px solid var(--color-base-700)', fontSize: 12 }}
-                  formatter={((v: number, _n: string, item: { payload: { semanas: number } }) => [
-                    `${formatMoeda(v)} (${item.payload.semanas} semana(s) sem responder)`,
-                    'Prejuízo',
-                  ]) as never}
-                />
+                <Tooltip cursor={CURSOR_SUAVE} content={tooltipPrejuizo} />
                 <Bar dataKey="prejuizo" name="Prejuízo" fill="var(--color-warn-500)" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -197,13 +299,7 @@ export function Dashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-base-800)" />
               <XAxis type="number" domain={[0, (max: number) => Math.max(100, max)]} unit="%" stroke="var(--color-base-400)" fontSize={11} />
               <YAxis type="category" dataKey="gerente" stroke="var(--color-base-400)" fontSize={11} width={160} />
-              <Tooltip
-                contentStyle={{ background: 'var(--color-base-850)', border: '1px solid var(--color-base-700)', fontSize: 12 }}
-                formatter={((v: number, _n: string, item: { payload: { pendente: number } }) => [
-                  `${v}% do apurado${item.payload.pendente > 0 ? ` · ${formatMoeda(item.payload.pendente)} pendente` : ''}`,
-                  '% abastecido',
-                ]) as never}
-              />
+              <Tooltip cursor={CURSOR_SUAVE} content={tooltipAbaixo} />
               <ReferenceLine x={LIMITE_TOLERANCIA_PCT} stroke="var(--color-base-400)" strokeDasharray="4 4" label={{ value: `${LIMITE_TOLERANCIA_PCT}%`, position: 'insideTopRight', fill: 'var(--color-base-400)', fontSize: 10 }} />
               <Bar dataKey="percentual" radius={[0, 4, 4, 0]}>
                 {percentualApuradoPorGerente.map((d) => (

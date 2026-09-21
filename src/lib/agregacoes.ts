@@ -1,4 +1,4 @@
-import { diasUsoEmpresaEfetivos, kmEfetivo } from './calculo'
+import { dentroDaTolerancia, diasUsoEmpresaEfetivos, kmEfetivo } from './calculo'
 import type { ComId, DiaResumo, Lancamento, LocalComTempo, Semana } from '../types/models'
 
 /** Junta os locais dos dois dias do fim de semana num só ranking por tempo parado — soma o
@@ -28,6 +28,8 @@ export interface LinhaContaCorrente {
   saldo: number // devido - pago: positivo = empresa ainda deve ao gerente
   semanasComUso: number
   semanasNaoRespondeu: number
+  semanasParciais: number // semanas com valor lançado abaixo da tolerância
+  kmUsoEmpresa: number // totalKm - kmParticular
   prejuizoNaoRespondeu: number // valor devido (ainda não pago) travado em semanas marcadas "não respondeu"
 }
 
@@ -56,6 +58,8 @@ export function agregarPorGerente(semanas: ComId<Semana>[], porSemana: Record<st
         saldo: 0,
         semanasComUso: 0,
         semanasNaoRespondeu: 0,
+        semanasParciais: 0,
+        kmUsoEmpresa: 0,
         prejuizoNaoRespondeu: 0,
       }
       linha.placa = l.placa
@@ -67,6 +71,7 @@ export function agregarPorGerente(semanas: ComId<Semana>[], porSemana: Record<st
       linha.totalDevido += l.valorDevidoCalc || 0
       linha.totalPago += l.valorPago || 0
       if (kmParticularSemana > 0) linha.semanasComUso += 1
+      if ((l.valorPago ?? 0) > 0 && !dentroDaTolerancia(l.valorPago ?? 0, l.valorDevidoCalc)) linha.semanasParciais += 1
       if (l.naoRespondeu) {
         linha.semanasNaoRespondeu += 1
         linha.prejuizoNaoRespondeu += Math.max((l.valorDevidoCalc || 0) - (l.valorPago || 0), 0)
@@ -75,7 +80,10 @@ export function agregarPorGerente(semanas: ComId<Semana>[], porSemana: Record<st
     }
   }
   const linhas = [...mapa.values()].map(({ placasSet, ...l }) => ({ ...l, placas: [...placasSet].sort() }))
-  for (const l of linhas) l.saldo = Math.round((l.totalDevido - l.totalPago) * 100) / 100
+  for (const l of linhas) {
+    l.saldo = Math.round((l.totalDevido - l.totalPago) * 100) / 100
+    l.kmUsoEmpresa = Math.max(l.totalKm - l.kmParticular, 0)
+  }
   return linhas.sort((a, b) => b.saldo - a.saldo)
 }
 
@@ -92,6 +100,12 @@ export interface PontoSemana {
   totalKm: number
   totalDevido: number
   totalPago: number
+  kmParticular: number
+  kmUsoEmpresa: number
+  totalPendente: number
+  gerentesComKm: number
+  gerentesEmDia: number
+  gerentesPendentes: number
 }
 
 export function agregarPorSemana(semanas: ComId<Semana>[], porSemana: Record<string, ComId<Lancamento>[]>): PontoSemana[] {
@@ -106,6 +120,12 @@ export function agregarPorSemana(semanas: ComId<Semana>[], porSemana: Record<str
         totalKm: lancamentos.reduce((acc, l) => acc + (l.kmRodado || 0), 0),
         totalDevido: lancamentos.reduce((acc, l) => acc + (l.valorDevidoCalc || 0), 0),
         totalPago: lancamentos.reduce((acc, l) => acc + (l.valorPago || 0), 0),
+        kmParticular: lancamentos.reduce((acc, l) => acc + kmEfetivo(l), 0),
+        kmUsoEmpresa: lancamentos.reduce((acc, l) => acc + Math.max((l.kmRodado || 0) - kmEfetivo(l), 0), 0),
+        totalPendente: lancamentos.reduce((acc, l) => acc + Math.max((l.valorDevidoCalc || 0) - (l.valorPago || 0), 0), 0),
+        gerentesComKm: lancamentos.filter((l) => (l.kmRodado || 0) > 0).length,
+        gerentesEmDia: lancamentos.filter((l) => l.valorDevidoCalc > 0 && dentroDaTolerancia(l.valorPago ?? 0, l.valorDevidoCalc)).length,
+        gerentesPendentes: lancamentos.filter((l) => l.valorDevidoCalc > 0 && !dentroDaTolerancia(l.valorPago ?? 0, l.valorDevidoCalc)).length,
       }
     })
 }

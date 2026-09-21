@@ -4,6 +4,7 @@ import { useSemanas } from '../hooks/useSemanas'
 import { useTodosLancamentos } from '../hooks/useLancamentos'
 import { agregarPorGerente } from '../lib/agregacoes'
 import { FiltroPeriodo, filtrarSemanas } from '../components/FiltroPeriodo'
+import { CartaoTooltip, conteudoTooltip } from '../components/TooltipGrafico'
 import { formatDataBR, formatMoeda, formatKm } from '../lib/format'
 
 export function ContaCorrente() {
@@ -53,8 +54,23 @@ export function ContaCorrente() {
   let acumulado = 0
   const serieAcumulada = historicoDoGerente.map((h) => {
     acumulado += (h.devido || 0) - (h.pago || 0)
-    return { label: h.label, saldo: Math.round(acumulado * 100) / 100 }
+    return { label: h.label, saldo: Math.round(acumulado * 100) / 100, devido: h.devido, pago: h.pago, km: h.km, placas: h.placas, usoEmpresa: h.usoEmpresa }
   })
+
+  type PontoSaldo = (typeof serieAcumulada)[number]
+  const tooltipSaldo = conteudoTooltip<PontoSaldo>((d) => (
+    <CartaoTooltip
+      titulo={`Semana de ${d.label}`}
+      subtitulo={d.placas ? `Placa ${d.placas}` : undefined}
+      linhas={[
+        { rotulo: 'Km na semana', valor: formatKm(d.km) },
+        { rotulo: 'Devido na semana', valor: formatMoeda(d.devido) },
+        { rotulo: 'Pago na semana', valor: d.pago == null ? '—' : formatMoeda(d.pago), tom: d.pago == null ? undefined : 'bom' },
+        { rotulo: 'Saldo acumulado', valor: formatMoeda(d.saldo), tom: d.saldo > 0 ? 'atencao' : 'bom', separador: true },
+      ]}
+      nota={d.usoEmpresa ? 'Semana inteira marcada como uso empresa (não gera devido).' : 'Saldo acumulado = tudo que foi apurado até esta semana menos o que já foi pago.'}
+    />
+  ))
 
   return (
     <div className="flex flex-col gap-6">
@@ -126,7 +142,7 @@ export function ContaCorrente() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-base-800)" />
                     <XAxis dataKey="label" stroke="var(--color-base-400)" fontSize={11} />
                     <YAxis stroke="var(--color-base-400)" fontSize={11} />
-                    <Tooltip contentStyle={{ background: 'var(--color-base-850)', border: '1px solid var(--color-base-700)', fontSize: 12 }} formatter={((v: number) => formatMoeda(v)) as never} />
+                    <Tooltip content={tooltipSaldo} />
                     <Line type="stepAfter" dataKey="saldo" stroke="var(--color-brand-400)" strokeWidth={2} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
