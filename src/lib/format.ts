@@ -34,3 +34,13 @@ export function diaSemanaCurto(iso: string): string {
   const [ano, mes, dia] = iso.split('-').map(Number)
   return dias[new Date(ano, mes - 1, dia).getDay()]
 }
+
+const PARTICULAS = new Set(['DA', 'DE', 'DO', 'DAS', 'DOS', 'E'])
+
+/** "JOAO CLAUDIO BARROS DE PAIVA" -> "JOAO PAIVA" (primeiro nome + último sobrenome). Ignora
+ * partículas soltas no fim (nomes vêm truncados do ERP, ex.: "ANDERSON LEONARDO PEREIRA DA"). */
+export function nomeCurto(nome: string): string {
+  const partes = nome.trim().split(/\s+/)
+  while (partes.length > 2 && PARTICULAS.has(partes[partes.length - 1].toUpperCase())) partes.pop()
+  return partes.length <= 2 ? partes.join(' ') : `${partes[0]} ${partes[partes.length - 1]}`
+}

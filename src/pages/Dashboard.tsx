@@ -7,7 +7,7 @@ import { useTodosLancamentos } from '../hooks/useLancamentos'
 import { agregarJustificativasUsoEmpresa, agregarPorGerente, agregarPorSemana } from '../lib/agregacoes'
 import { TOLERANCIA_REEMBOLSO, percentualApurado } from '../lib/calculo'
 import { CartaoTooltip, conteudoTooltip, CURSOR_SUAVE } from '../components/TooltipGrafico'
-import { formatMoeda, formatKm, formatDataBR } from '../lib/format'
+import { formatMoeda, formatKm, formatDataBR, nomeCurto } from '../lib/format'
 import type { PontoSemana } from '../lib/agregacoes'
 
 const LIMITE_TOLERANCIA_PCT = (1 - TOLERANCIA_REEMBOLSO) * 100 // 90%
@@ -258,7 +258,7 @@ export function Dashboard() {
               <BarChart data={kmParticularPorGerente} layout="vertical" margin={{ left: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-base-800)" />
                 <XAxis type="number" stroke="var(--color-base-400)" fontSize={11} />
-                <YAxis type="category" dataKey="gerente" stroke="var(--color-base-400)" fontSize={11} width={160} />
+                <YAxis type="category" dataKey="gerente" tickFormatter={nomeCurto} stroke="var(--color-base-400)" fontSize={11} width={120} />
                 <Tooltip cursor={CURSOR_SUAVE} content={tooltipKmGerente} />
                 <Bar dataKey="km" fill="var(--color-brand-500)" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -277,7 +277,7 @@ export function Dashboard() {
               <BarChart data={rankingNaoResponderam} layout="vertical" margin={{ left: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-base-800)" />
                 <XAxis type="number" stroke="var(--color-base-400)" fontSize={11} />
-                <YAxis type="category" dataKey="gerente" stroke="var(--color-base-400)" fontSize={11} width={160} />
+                <YAxis type="category" dataKey="gerente" tickFormatter={nomeCurto} stroke="var(--color-base-400)" fontSize={11} width={120} />
                 <Tooltip cursor={CURSOR_SUAVE} content={tooltipPrejuizo} />
                 <Bar dataKey="prejuizo" name="Prejuízo" fill="var(--color-warn-500)" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -298,7 +298,7 @@ export function Dashboard() {
             <BarChart data={percentualApuradoPorGerente} layout="vertical" margin={{ left: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-base-800)" />
               <XAxis type="number" domain={[0, (max: number) => Math.max(100, max)]} unit="%" stroke="var(--color-base-400)" fontSize={11} />
-              <YAxis type="category" dataKey="gerente" stroke="var(--color-base-400)" fontSize={11} width={160} />
+              <YAxis type="category" dataKey="gerente" tickFormatter={nomeCurto} stroke="var(--color-base-400)" fontSize={11} width={120} />
               <Tooltip cursor={CURSOR_SUAVE} content={tooltipAbaixo} />
               <ReferenceLine x={LIMITE_TOLERANCIA_PCT} stroke="var(--color-base-400)" strokeDasharray="4 4" label={{ value: `${LIMITE_TOLERANCIA_PCT}%`, position: 'insideTopRight', fill: 'var(--color-base-400)', fontSize: 10 }} />
               <Bar dataKey="percentual" radius={[0, 4, 4, 0]}>
