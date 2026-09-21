@@ -13,16 +13,17 @@ export interface OutroCondutor {
 }
 
 export interface ResultadoBase {
-  /** veículos ativos cujo condutor tem função GERENTE — o critério do cadastro */
+  /** veículos ativos que entram no cadastro: camionetes (tipo CNT) com condutor, ou condutor GERENTE */
   gerentes: Veiculo[]
-  /** demais veículos ativos da base (condutor sem função GERENTE ou sem função preenchida),
-   * indexados por placa — usado pra acusar troca de condutor mesmo quando a função não vem. */
+  /** demais veículos ativos da base, indexados por placa — usado pra acusar troca de condutor de
+   * uma placa já cadastrada mesmo que ela não se enquadre mais no critério acima. */
   outros: Map<string, OutroCondutor>
 }
 
 /**
- * Lê a planilha "Base de Placas" do ERP (aba cadastroVeiculoXls). Separa os veículos ativos cujo
- * condutor é GERENTE (base do cadastro) dos demais, que só servem pra detectar troca de condutor.
+ * Lê a planilha "Base de Placas" do ERP (aba cadastroVeiculoXls). Separa os veículos que entram no
+ * cadastro (camionete CNT ou condutor GERENTE) dos demais, que só servem pra detectar troca de
+ * condutor.
  */
 export async function parseBasePlacasXls(arquivo: File): Promise<ResultadoBase> {
   const buffer = await arquivo.arrayBuffer()
@@ -54,7 +55,9 @@ export async function parseBasePlacasXls(arquivo: File): Promise<ResultadoBase> 
     const filial = iSigla !== -1 ? limpar(r[iSigla]) : ''
     const modelo = iModelo !== -1 ? limpar(r[iModelo]) : ''
     const tipo = iTipo !== -1 ? limpar(r[iTipo]) : ''
-    if (funcao.toUpperCase().includes('GEREN')) {
+    // Critério do cadastro: camionete (tipo CNT) com condutor, seja qual for a função dele na base
+    // (a função nem sempre vem preenchida), ou qualquer veículo cujo condutor seja GERENTE.
+    if (tipo.toUpperCase() === 'CNT' || funcao.toUpperCase().includes('GEREN')) {
       gerentes.push({ placa, gerente: condutor, filial, modelo, tipo, ativo: true })
     } else {
       outros.set(placa, { placa, condutor, funcao, filial, modelo, tipo })
