@@ -56,7 +56,7 @@ export function ModalMudancasCadastro({ mudancas, onAplicar, onCancelar }: Props
                       <td className="px-3 py-2">
                         {m.tipo === 'saiu' ? (
                           <span>
-                            {m.antes?.gerente} <span className="text-base-500">(será desativada)</span>
+                            {m.antes?.gerente} <span className="text-base-500">(será desativada{m.motivo ? ' — ' + m.motivo : ''})</span>
                           </span>
                         ) : m.tipo === 'novo' ? (
                           <span>
@@ -68,6 +68,7 @@ export function ModalMudancasCadastro({ mudancas, onAplicar, onCancelar }: Props
                         ) : m.tipo === 'troca' ? (
                           <span>
                             <span className="text-base-400 line-through">{m.antes?.gerente}</span> → <b>{m.depois?.gerente}</b>
+                            {m.motivo && <span className="ml-2 text-xs text-warn-300">({m.motivo})</span>}
                           </span>
                         ) : (
                           <span>

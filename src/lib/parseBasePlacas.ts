@@ -3,11 +3,28 @@ import type { Veiculo } from '../types/models'
 
 const limpar = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim()
 
+export interface OutroCondutor {
+  placa: string
+  condutor: string
+  funcao: string
+  filial: string
+  modelo: string
+  tipo: string
+}
+
+export interface ResultadoBase {
+  /** veículos ativos cujo condutor tem função GERENTE — o critério do cadastro */
+  gerentes: Veiculo[]
+  /** demais veículos ativos da base (condutor sem função GERENTE ou sem função preenchida),
+   * indexados por placa — usado pra acusar troca de condutor mesmo quando a função não vem. */
+  outros: Map<string, OutroCondutor>
+}
+
 /**
- * Lê a planilha "Base de Placas" do ERP (aba cadastroVeiculoXls) e devolve só os veículos ativos
- * cujo condutor tem função GERENTE — mesmo critério usado na carga inicial do cadastro.
+ * Lê a planilha "Base de Placas" do ERP (aba cadastroVeiculoXls). Separa os veículos ativos cujo
+ * condutor é GERENTE (base do cadastro) dos demais, que só servem pra detectar troca de condutor.
  */
-export async function parseBasePlacasXls(arquivo: File): Promise<Veiculo[]> {
+export async function parseBasePlacasXls(arquivo: File): Promise<ResultadoBase> {
   const buffer = await arquivo.arrayBuffer()
   const wb = XLSX.read(buffer, { type: 'array' })
   const nomeAba = wb.SheetNames.find((n) => n.toLowerCase().includes('cadastroveiculo')) ?? wb.SheetNames[0]
@@ -25,23 +42,24 @@ export async function parseBasePlacasXls(arquivo: File): Promise<Veiculo[]> {
     throw new Error('Colunas PLACA, CONDUTOR e FUNCAO CONDUTOR não encontradas — confira se é a planilha "Base de Placas".')
   }
 
-  const resultado: Veiculo[] = []
+  const gerentes: Veiculo[] = []
+  const outros = new Map<string, OutroCondutor>()
   for (let i = 1; i < linhas.length; i++) {
     const r = linhas[i]
-    if (!limpar(r[iFuncao]).toUpperCase().includes('GEREN')) continue
     if (iStatus !== -1 && limpar(r[iStatus]) !== 'Ativo') continue
     const placa = limpar(r[iPlaca]).replace(/\s+/g, '').toUpperCase()
-    const gerente = limpar(r[iCondutor])
-    if (!placa || !gerente || gerente === 'APOIO FROTAS') continue
-    resultado.push({
-      placa,
-      gerente,
-      filial: iSigla !== -1 ? limpar(r[iSigla]) : '',
-      modelo: iModelo !== -1 ? limpar(r[iModelo]) : '',
-      tipo: iTipo !== -1 ? limpar(r[iTipo]) : '',
-      ativo: true,
-    })
+    const condutor = limpar(r[iCondutor])
+    if (!placa || !condutor || condutor === 'APOIO FROTAS') continue
+    const funcao = limpar(r[iFuncao])
+    const filial = iSigla !== -1 ? limpar(r[iSigla]) : ''
+    const modelo = iModelo !== -1 ? limpar(r[iModelo]) : ''
+    const tipo = iTipo !== -1 ? limpar(r[iTipo]) : ''
+    if (funcao.toUpperCase().includes('GEREN')) {
+      gerentes.push({ placa, gerente: condutor, filial, modelo, tipo, ativo: true })
+    } else {
+      outros.set(placa, { placa, condutor, funcao, filial, modelo, tipo })
+    }
   }
-  if (resultado.length === 0) throw new Error('Nenhum veículo com condutor GERENTE ativo encontrado na planilha.')
-  return resultado
+  if (gerentes.length === 0 && outros.size === 0) throw new Error('Nenhum veículo ativo com condutor encontrado na planilha.')
+  return { gerentes, outros }
 }
