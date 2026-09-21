@@ -149,7 +149,7 @@ export function ImportarSemana() {
             </h2>
             {semanaJaExiste && (
               <span className="rounded-full bg-warn-bg px-2 py-1 text-xs text-warn-300">
-                Já existe uma semana importada nesse período — importar de novo atualiza o km e mantém os lançamentos já preenchidos.
+                Já existe uma semana importada nesse período — importar de novo atualiza só as placas que estão no arquivo; as demais, o preço do diesel da época e os lançamentos já preenchidos ficam como estavam.
               </span>
             )}
           </div>

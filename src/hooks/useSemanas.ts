@@ -58,13 +58,20 @@ export function useSemanas() {
   ) {
     const semanaId = resultado.dataInicio
     const porPlaca = new Map(resultado.linhas.map((l) => [l.placa, l]))
+    // Semana já existente (reimportação ou importação complementar, ex.: só uma placa que ficou de
+    // fora): mantém o preço do diesel e o km/L da época, senão o valor devido de todos seria
+    // recalculado com os parâmetros de hoje.
+    const semanaExistente = (semanas ?? []).find((x) => x.id === semanaId)
+    const precoUsado = semanaExistente?.precoDieselUsado ?? precoDiesel
+    const kmLUsado = semanaExistente?.kmLExigidoUsado ?? kmLExigido
 
     const lote: Record<string, Lancamento> = {}
     for (const v of veiculos) {
       if (!v.ativo) continue
       const linha = porPlaca.get(v.placa)
-      const kmRodado = linha?.kmPercorrido ?? 0
       const existente = existentes[v.placa]
+      // Placa que não veio neste arquivo mantém o km que já tinha (importação parcial não zera).
+      const kmRodado = linha ? linha.kmPercorrido : (existente?.kmRodado ?? 0)
       const usoEmpresa = existente?.usoEmpresa ?? false
       const diasUsoEmpresa = existente?.diasUsoEmpresa
       const dias = montarDias(v.placa, resultado, paradas) ?? existente?.dias
@@ -82,7 +89,7 @@ export function useSemanas() {
         valorPago: existente?.valorPago ?? null,
         dataPagamento: existente?.dataPagamento ?? null,
         observacao: existente?.observacao ?? '',
-        valorDevidoCalc: calcularValorDevido(kmParaCalculo, kmLExigido, precoDiesel),
+        valorDevidoCalc: calcularValorDevido(kmParaCalculo, kmLUsado, precoUsado),
         dias,
       }
     }
@@ -90,10 +97,13 @@ export function useSemanas() {
     await gravarDoc(PATH, semanaId, {
       dataInicio: resultado.dataInicio,
       dataFim: resultado.dataFim,
-      precoDieselUsado: precoDiesel,
-      kmLExigidoUsado: kmLExigido,
+      precoDieselUsado: precoUsado,
+      kmLExigidoUsado: kmLUsado,
       importadoEm: new Date().toISOString(),
-      origemArquivo: nomeArquivo,
+      origemArquivo:
+        semanaExistente && !semanaExistente.origemArquivo.split(' + ').includes(nomeArquivo)
+          ? `${semanaExistente.origemArquivo} + ${nomeArquivo}`
+          : nomeArquivo,
     } satisfies Semana)
     await gravarLote(`${PATH}/${semanaId}/lancamentos`, lote)
     return semanaId
