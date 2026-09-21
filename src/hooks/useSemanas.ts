@@ -71,8 +71,10 @@ export function useSemanas() {
       const kmParaCalculo = kmEfetivo({ kmRodado, usoEmpresa, diasUsoEmpresa, dias })
       lote[v.placa] = {
         placa: v.placa,
-        gerente: v.gerente,
-        filial: v.filial,
+        // Semana já importada mantém o condutor/filial da época (reimportar depois de uma troca de
+        // condutor no cadastro não pode reescrever o histórico).
+        gerente: existente?.gerente ?? v.gerente,
+        filial: existente?.filial ?? v.filial,
         kmRodado,
         usoEmpresa,
         diasUsoEmpresa,
