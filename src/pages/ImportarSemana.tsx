@@ -12,7 +12,21 @@ export function ImportarSemana() {
   const navigate = useNavigate()
   const { veiculos } = useVeiculos()
   const { parametros } = useParametros()
-  const { semanas, importarDeRota } = useSemanas()
+  const { semanas, importarDeRota, excluirSemana } = useSemanas()
+  const [excluindoId, setExcluindoId] = useState<string | null>(null)
+
+  async function onExcluirSemana(id: string, periodo: string) {
+    const ok = confirm(
+      `Excluir a semana ${periodo}?\n\nIsso apaga TODOS os lançamentos dela (km, valores pagos, observações, "uso empresa", "não respondeu") e não dá pra desfazer.`,
+    )
+    if (!ok) return
+    setExcluindoId(id)
+    try {
+      await excluirSemana(id)
+    } finally {
+      setExcluindoId(null)
+    }
+  }
   const inputRef = useRef<HTMLInputElement>(null)
   const inputParadasRef = useRef<HTMLInputElement>(null)
 
@@ -213,6 +227,45 @@ export function ImportarSemana() {
           </button>
         </div>
       )}
+
+      <div className="rounded-xl border border-base-800/60 bg-base-900/60 p-4">
+        <h2 className="mb-3 text-sm font-semibold text-base-200">Semanas já importadas</h2>
+        {semanas.length === 0 ? (
+          <p className="text-sm text-base-500">Nenhuma semana importada ainda.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-base-800 text-left text-xs uppercase tracking-wide text-base-500">
+                <th className="py-2 pr-3">Período</th>
+                <th className="py-2 pr-3">Arquivo</th>
+                <th className="py-2 pr-3">Importada em</th>
+                <th className="py-2 pr-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {semanas.map((s) => {
+                const periodo = `${formatDataBR(s.dataInicio)} a ${formatDataBR(s.dataFim)}`
+                return (
+                  <tr key={s.id} className="border-b border-base-800/60 last:border-0">
+                    <td className="py-2 pr-3 font-medium">{periodo}</td>
+                    <td className="py-2 pr-3 text-base-400">{s.origemArquivo}</td>
+                    <td className="py-2 pr-3 text-base-400">{new Date(s.importadoEm).toLocaleString('pt-BR')}</td>
+                    <td className="py-2 pr-3 text-right">
+                      <button
+                        onClick={() => onExcluirSemana(s.id, periodo)}
+                        disabled={excluindoId === s.id}
+                        className="text-xs text-crit-400 hover:underline disabled:opacity-50"
+                      >
+                        {excluindoId === s.id ? 'excluindo…' : 'excluir'}
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   )
 }

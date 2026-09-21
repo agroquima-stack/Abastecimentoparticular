@@ -76,3 +76,12 @@ export interface Lancamento {
 }
 
 export type ComId<T> = T & { id: string }
+
+/** Registro de mudança no cadastro vindo da importação da Base de Placas (troca de condutor etc.). */
+export interface HistoricoVeiculo {
+  placa: string
+  tipo: 'troca' | 'novo' | 'dados' | 'saiu'
+  gerenteAntes: string | null
+  gerenteDepois: string | null
+  data: string // ISO datetime
+}

@@ -2,6 +2,7 @@ import {
   collection,
   deleteDoc as fsDeleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   setDoc as fsSetDoc,
   updateDoc as fsUpdateDoc,
@@ -92,6 +93,20 @@ export async function removerDoc(path: string, id: string): Promise<void> {
     return
   }
   delete memoria[path]?.[id]
+  persistirLocal()
+  notificarLocal(path)
+}
+
+/** Apaga todos os docs de uma coleção/subcoleção (Firestore não apaga subcoleção sozinho ao
+ * apagar o doc pai). */
+export async function removerColecao(path: string): Promise<void> {
+  if (FIREBASE_CONFIGURADO && firestore) {
+    const db = firestore
+    const snap = await getDocs(collection(db, path))
+    await Promise.all(snap.docs.map((d) => fsDeleteDoc(d.ref)))
+    return
+  }
+  delete memoria[path]
   persistirLocal()
   notificarLocal(path)
 }

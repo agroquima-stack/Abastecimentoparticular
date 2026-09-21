@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { calcularValorDevido, kmEfetivo } from '../lib/calculo'
 import type { ParadasPorVeiculo } from '../lib/parseParadas'
 import type { ResultadoParseRota } from '../lib/parseRota'
-import { atualizarDoc, gravarDoc, gravarLote, observarColecao } from '../lib/store'
+import { atualizarDoc, gravarDoc, gravarLote, observarColecao, removerColecao, removerDoc } from '../lib/store'
 import type { ComId, DiaResumo, Lancamento, Semana, Veiculo } from '../types/models'
 
 const PATH = 'semanas'
@@ -101,5 +101,11 @@ export function useSemanas() {
     await atualizarDoc(PATH, semanaId, patch)
   }
 
-  return { semanas: semanas ?? [], carregando: semanas === null, importarDeRota, atualizarParametrosDaSemana }
+  /** Apaga a semana e todos os lançamentos dela (irreversível). */
+  async function excluirSemana(semanaId: string) {
+    await removerColecao(`${PATH}/${semanaId}/lancamentos`)
+    await removerDoc(PATH, semanaId)
+  }
+
+  return { semanas: semanas ?? [], carregando: semanas === null, importarDeRota, atualizarParametrosDaSemana, excluirSemana }
 }

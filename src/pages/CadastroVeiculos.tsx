@@ -1,13 +1,30 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { ModalMudancasCadastro, ROTULO_TIPO } from '../components/ModalMudancasCadastro'
 import { useVeiculos } from '../hooks/useVeiculos'
+import { compararCadastro, type Mudanca } from '../lib/diffCadastro'
+import { formatDataBR } from '../lib/format'
+import { parseBasePlacasXls } from '../lib/parseBasePlacas'
 import type { Veiculo } from '../types/models'
 
 const VAZIO: Veiculo = { placa: '', gerente: '', filial: '', modelo: '', tipo: '', ativo: true }
 
 export function CadastroVeiculos() {
-  const { veiculos, carregando, precisaSemear, semear, salvar, remover } = useVeiculos()
+  const { veiculos, historico, carregando, precisaSemear, semear, salvar, remover, aplicarMudancas } = useVeiculos()
   const [editando, setEditando] = useState<Veiculo | null>(null)
   const [semeando, setSemeando] = useState(false)
+  const inputBaseRef = useRef<HTMLInputElement>(null)
+  const [mudancas, setMudancas] = useState<Mudanca[] | null>(null)
+  const [erroBase, setErroBase] = useState<string | null>(null)
+
+  async function onArquivoBase(file: File) {
+    setErroBase(null)
+    try {
+      const base = await parseBasePlacasXls(file)
+      setMudancas(compararCadastro(veiculos, base))
+    } catch (e) {
+      setErroBase(e instanceof Error ? e.message : 'Erro ao ler a planilha.')
+    }
+  }
 
   async function onSemear() {
     setSemeando(true)
@@ -25,13 +42,34 @@ export function CadastroVeiculos() {
           <h1 className="text-xl font-semibold text-base-50">Cadastro de gerentes / camionetes</h1>
           <p className="text-sm text-base-400">{veiculos.length} veículo(s) cadastrado(s).</p>
         </div>
-        <button
-          onClick={() => setEditando(VAZIO)}
-          className="rounded-lg border border-brand-500/40 bg-brand-700/20 px-4 py-2 text-sm font-medium text-brand-200 hover:bg-brand-700/30"
-        >
-          + Novo veículo
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => inputBaseRef.current?.click()}
+            className="rounded-lg border border-base-700 bg-base-900 px-4 py-2 text-sm font-medium text-base-200 hover:bg-base-800"
+          >
+            Importar Base de Placas
+          </button>
+          <input
+            ref={inputBaseRef}
+            type="file"
+            accept=".xls,.xlsx"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) onArquivoBase(f)
+              e.target.value = ''
+            }}
+          />
+          <button
+            onClick={() => setEditando(VAZIO)}
+            className="rounded-lg border border-brand-500/40 bg-brand-700/20 px-4 py-2 text-sm font-medium text-brand-200 hover:bg-brand-700/30"
+          >
+            + Novo veículo
+          </button>
+        </div>
       </div>
+
+      {erroBase && <div className="rounded-lg border border-crit-600/40 bg-crit-bg px-4 py-3 text-sm text-crit-400">{erroBase}</div>}
 
       {precisaSemear && !carregando && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-600/40 bg-brand-700/10 px-4 py-3 text-sm text-brand-200">
@@ -85,6 +123,44 @@ export function CadastroVeiculos() {
           </tbody>
         </table>
       </div>
+
+      {historico.length > 0 && (
+        <div className="rounded-xl border border-base-800/60 bg-base-900/60 p-4">
+          <h2 className="mb-3 text-sm font-semibold text-base-200">Histórico de mudanças no cadastro</h2>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-base-800 text-left text-xs uppercase tracking-wide text-base-500">
+                <th className="py-2 pr-3">Data</th>
+                <th className="py-2 pr-3">Placa</th>
+                <th className="py-2 pr-3">Mudança</th>
+              </tr>
+            </thead>
+            <tbody>
+              {historico.slice(0, 30).map((h) => (
+                <tr key={h.id} className="border-b border-base-800/60 last:border-0">
+                  <td className="py-1.5 pr-3 text-base-400">{formatDataBR(h.data.slice(0, 10))}</td>
+                  <td className="py-1.5 pr-3 font-mono text-xs">{h.placa}</td>
+                  <td className="py-1.5 pr-3">
+                    <span className="mr-2 text-xs text-base-500">{ROTULO_TIPO[h.tipo]}</span>
+                    {h.gerenteAntes ?? '—'} → {h.gerenteDepois ?? '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {mudancas && (
+        <ModalMudancasCadastro
+          mudancas={mudancas}
+          onCancelar={() => setMudancas(null)}
+          onAplicar={async (escolhidas) => {
+            await aplicarMudancas(escolhidas)
+            setMudancas(null)
+          }}
+        />
+      )}
 
       {editando && (
         <ModalVeiculo
